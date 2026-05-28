@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QListWidget, QTextEdit, QLineEdit, QSplitter,
                              QColorDialog, QInputDialog, QMessageBox, QMenu,
                              QTreeWidgetItem, QListWidgetItem, QFontComboBox, QFileDialog)
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QRectF
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QRectF, QPointF
 from PyQt6.QtGui import (QTextCharFormat, QColor, QCursor, QGuiApplication, 
                          QTextCursor, QFont, QTextListFormat, QPen, 
                          QTextTableFormat, QBrush, QTextFrameFormat, QPainter)
@@ -54,6 +54,13 @@ class CustomTextEditor(QTextEdit):
         self.block_format = QTextCharFormat()
         self.block_format.setBackground(QColor(self.COPY_BG))
         self.block_format.setFontFamily("Courier")
+
+    def contentOffset(self):
+        margin = self.document().documentMargin()
+        return QPointF(
+            margin - self.horizontalScrollBar().value(),
+            margin - self.verticalScrollBar().value()
+        )
 
     def create_copy_block(self):
         cursor = self.textCursor()
@@ -113,16 +120,15 @@ class CustomTextEditor(QTextEdit):
         painter = QPainter(self.viewport())
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
-        # Thin neutral grey/black border for maximum premium styling
+        # Thin neutral grey/black border
         pen = QPen(QColor("#888888"), 1, Qt.PenStyle.SolidLine)
         painter.setPen(pen)
         
         doc = self.document()
         doc_layout = doc.documentLayout()
         
-        x_offset = self.horizontalScrollBar().value()
-        y_offset = self.verticalScrollBar().value()
-        margin = doc.documentMargin()
+        # FIX: Use contentOffset() for flawless document-to-viewport mapping
+        offset = self.contentOffset()
         
         block = doc.begin()
         while block.isValid():
@@ -154,15 +160,24 @@ class CustomTextEditor(QTextEdit):
                             x2 = line.cursorToX(intersect_end)[0]
                             
                             line_rect = line.rect()
-                            vx1 = block_pos.x() + x1 - x_offset + margin
-                            vx2 = block_pos.x() + x2 - x_offset + margin
-                            vy = block_pos.y() + line_rect.y() - y_offset + margin
+                            
+                            # FIX: Apply contentOffset for exact positioning
+                            vx1 = block_pos.x() + x1 + offset.x()
+                            vx2 = block_pos.x() + x2 + offset.x()
+                            vy = block_pos.y() + line_rect.y() + offset.y()
                             vh = line_rect.height()
                             
-                            # Draw a precise border around the text run segment
-                            # Shifted left by 1px (vx1 - 2) and up by 1px (vy - 1) as requested by user
-                            rect = QRectF(vx1 - 2, vy - 1, (vx2 - vx1) + 3, vh - 1)
-                            painter.drawRect(rect)
+                            # FIX: Add uniform padding so the box breathes
+                            padding = 2
+                            rect = QRectF(
+                                vx1 - padding, 
+                                vy - padding, 
+                                (vx2 - vx1) + (padding * 2), 
+                                vh + (padding * 2)
+                            )
+                            
+                            # FIX: Rounded corners for a premium feel
+                            painter.drawRoundedRect(rect, 3, 3)
             
             block = block.next()
 

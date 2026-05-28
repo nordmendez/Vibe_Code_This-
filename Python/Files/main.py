@@ -55,12 +55,6 @@ class CustomTextEditor(QTextEdit):
         self.block_format.setBackground(QColor(self.COPY_BG))
         self.block_format.setFontFamily("Courier")
 
-    def contentOffset(self):
-        margin = self.document().documentMargin()
-        return QPointF(
-            margin - self.horizontalScrollBar().value(),
-            margin - self.verticalScrollBar().value()
-        )
 
     def create_copy_block(self):
         cursor = self.textCursor()
@@ -127,8 +121,9 @@ class CustomTextEditor(QTextEdit):
         doc = self.document()
         doc_layout = doc.documentLayout()
         
-        # FIX: Use contentOffset() for flawless document-to-viewport mapping
-        offset = self.contentOffset()
+        # 1. Get exact scroll offsets (No margins!)
+        x_offset = self.horizontalScrollBar().value()
+        y_offset = self.verticalScrollBar().value()
         
         block = doc.begin()
         while block.isValid():
@@ -156,27 +151,22 @@ class CustomTextEditor(QTextEdit):
                         intersect_end = min(run_end, line_end)
                         
                         if intersect_start < intersect_end:
+                            # 2. cursorToX returns a tuple, grab the float at index 0. 
+                            # This X is relative to the block layout.
                             x1 = line.cursorToX(intersect_start)[0]
                             x2 = line.cursorToX(intersect_end)[0]
                             
-                            line_rect = line.rect()
+                            # 3. The Flawless Math: Block Pos + Relative Pos - Scrollbar
+                            vx1 = block_pos.x() + x1 - x_offset
+                            vx2 = block_pos.x() + x2 - x_offset
+                            vy = block_pos.y() + line.y() - y_offset
+                            vh = line.height()
                             
-                            # FIX: Apply contentOffset for exact positioning
-                            vx1 = block_pos.x() + x1 + offset.x()
-                            vx2 = block_pos.x() + x2 + offset.x()
-                            vy = block_pos.y() + line_rect.y() + offset.y()
-                            vh = line_rect.height()
+                            # 4. Apply the breathing room padding and draw
+                            pad_x = 2
+                            pad_y = 1
+                            rect = QRectF(vx1 - pad_x, vy - pad_y, (vx2 - vx1) + (pad_x * 2), vh + (pad_y * 2))
                             
-                            # FIX: Add uniform padding so the box breathes
-                            padding = 2
-                            rect = QRectF(
-                                vx1 - padding, 
-                                vy - padding, 
-                                (vx2 - vx1) + (padding * 2), 
-                                vh + (padding * 2)
-                            )
-                            
-                            # FIX: Rounded corners for a premium feel
                             painter.drawRoundedRect(rect, 3, 3)
             
             block = block.next()

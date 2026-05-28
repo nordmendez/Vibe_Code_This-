@@ -176,6 +176,18 @@ class TranslucentWindow(QWidget):
         self.text_display.setHtml(text_content)
         layout.addWidget(self.text_display)
 
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() == Qt.MouseButton.LeftButton:
+            if hasattr(self, '_drag_position'):
+                self.move(event.globalPosition().toPoint() - self._drag_position)
+                event.accept()
+
+
 class VibeCodeThisWindow(QMainWindow):
     def __init__(self):
         super().__init__()

@@ -3,9 +3,9 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QTreeWidget, 
                              QListWidget, QTextEdit, QLineEdit, QSplitter,
                              QColorDialog, QInputDialog, QMessageBox, QMenu,
-                             QTreeWidgetItem, QListWidgetItem)
+                             QTreeWidgetItem, QListWidgetItem, QToolTip, QFontComboBox)
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QTextCharFormat, QColor, QCursor, QGuiApplication
+from PyQt6.QtGui import QTextCharFormat, QColor, QCursor, QGuiApplication, QTextCursor, QFont, QTextListFormat, QPen
 
 class TranslucentWindow(QWidget):
     def __init__(self, text_content):
@@ -39,8 +39,13 @@ class CustomTextEditor(QTextEdit):
         self.default_format = QTextCharFormat()
         
         self.block_format = QTextCharFormat()
-        self.block_format.setBackground(QColor("lightgray"))
-        # Using a custom property to identify the block
+        self.block_format.setBackground(QColor("#E8E8E8")) # Lighter grey
+        
+        # Adding a thin outline to text to simulate border feel since inline background borders aren't natively supported
+        pen = QPen(QColor("black"))
+        pen.setWidthF(0.5)
+        self.block_format.setTextOutline(pen)
+        
         self.block_format.setProperty(QTextCharFormat.Property.UserProperty, True)
 
     def keyPressEvent(self, event):
@@ -56,7 +61,7 @@ class CustomTextEditor(QTextEdit):
         
         super().keyPressEvent(event)
         
-        # Re-apply format if still in copy block (since some actions might reset it)
+        # Re-apply format if still in copy block
         if self.in_copy_block and self.currentCharFormat() != self.block_format:
             self.setCurrentCharFormat(self.block_format)
 
@@ -66,12 +71,28 @@ class CustomTextEditor(QTextEdit):
             cursor = self.cursorForPosition(event.pos())
             fmt = cursor.charFormat()
             if fmt.property(QTextCharFormat.Property.UserProperty) == True:
-                # Find the full block
-                cursor.select(cursor.SelectionType.WordUnderCursor)
-                selected_text = cursor.selectedText()
+                # Find boundaries
+                left_cursor = QTextCursor(cursor)
+                while left_cursor.position() > 0:
+                    left_cursor.movePosition(QTextCursor.MoveOperation.Left)
+                    if left_cursor.charFormat().property(QTextCharFormat.Property.UserProperty) != True:
+                        left_cursor.movePosition(QTextCursor.MoveOperation.Right)
+                        break
+                        
+                right_cursor = QTextCursor(cursor)
+                doc_length = self.document().characterCount()
+                while right_cursor.position() < doc_length - 1:
+                    right_cursor.movePosition(QTextCursor.MoveOperation.Right)
+                    if right_cursor.charFormat().property(QTextCharFormat.Property.UserProperty) != True:
+                        break
+                        
+                selection_cursor = QTextCursor(left_cursor)
+                selection_cursor.setPosition(right_cursor.position(), QTextCursor.MoveMode.KeepAnchor)
+                selected_text = selection_cursor.selectedText()
                 if selected_text:
                     QGuiApplication.clipboard().setText(selected_text)
-                    print("Copied to clipboard:", selected_text)
+                    QToolTip.showText(QCursor.pos(), "Copied to clip board", self)
+
 
 class VibeCodeThisWindow(QMainWindow):
     def __init__(self):
@@ -162,13 +183,47 @@ class VibeCodeThisWindow(QMainWindow):
         self.col3_header.addStretch()
         self.col3_header.addWidget(self.btn_trans)
         
+        # Formatting Toolbar
+        self.formatting_widget = QWidget()
+        self.format_layout = QHBoxLayout(self.formatting_widget)
+        self.format_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.font_combo = QFontComboBox()
+        self.font_combo.currentFontChanged.connect(self.change_font)
+        self.format_layout.addWidget(self.font_combo)
+        
+        self.btn_bold = QPushButton("B")
+        self.btn_bold.setCheckable(True)
+        self.btn_bold.clicked.connect(self.toggle_bold)
+        self.format_layout.addWidget(self.btn_bold)
+        
+        self.btn_underline = QPushButton("U")
+        self.btn_underline.setCheckable(True)
+        self.btn_underline.clicked.connect(self.toggle_underline)
+        self.format_layout.addWidget(self.btn_underline)
+        
+        self.btn_center = QPushButton("Center")
+        self.btn_center.clicked.connect(self.align_center)
+        self.format_layout.addWidget(self.btn_center)
+        
+        self.btn_bullet = QPushButton("• List")
+        self.btn_bullet.clicked.connect(self.insert_bullet)
+        self.format_layout.addWidget(self.btn_bullet)
+        
+        self.btn_number = QPushButton("1. List")
+        self.btn_number.clicked.connect(self.insert_number)
+        self.format_layout.addWidget(self.btn_number)
+        
         self.text_editor = CustomTextEditor()
         self.text_editor.textChanged.connect(self.save_task_note)
         self.btn_toggle_edit.clicked.connect(self.toggle_edit_mode)
         self.btn_trans.clicked.connect(self.spawn_translucent_window)
         
         self.col3_layout.addLayout(self.col3_header)
+        self.col3_layout.addWidget(self.formatting_widget)
         self.col3_layout.addWidget(self.text_editor)
+        
+        self.formatting_widget.hide()
         
         self.splitter.addWidget(self.col1_widget)
         self.splitter.addWidget(self.col2_widget)
@@ -301,14 +356,39 @@ class VibeCodeThisWindow(QMainWindow):
             self.text_editor.blockSignals(False)
             if not note_content.strip():
                 self.text_editor.setReadOnly(False)
+                self.formatting_widget.show()
             else:
                 self.text_editor.setReadOnly(True)
+                self.formatting_widget.hide()
         else:
             self.text_editor.clear()
             self.text_editor.setReadOnly(True)
+            self.formatting_widget.hide()
+
+    def change_font(self, font):
+        self.text_editor.setCurrentFont(font)
+
+    def toggle_bold(self):
+        self.text_editor.setFontWeight(700 if self.btn_bold.isChecked() else 400)
+
+    def toggle_underline(self):
+        self.text_editor.setFontUnderline(self.btn_underline.isChecked())
+
+    def align_center(self):
+        self.text_editor.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+    def insert_bullet(self):
+        cursor = self.text_editor.textCursor()
+        cursor.createList(QTextListFormat.Style.ListDisc)
+
+    def insert_number(self):
+        cursor = self.text_editor.textCursor()
+        cursor.createList(QTextListFormat.Style.ListDecimal)
 
     def toggle_edit_mode(self):
-        self.text_editor.setReadOnly(not self.text_editor.isReadOnly())
+        new_state = not self.text_editor.isReadOnly()
+        self.text_editor.setReadOnly(new_state)
+        self.formatting_widget.setVisible(not new_state)
 
     def save_task_note(self):
         item = self.list_tasks.currentItem()

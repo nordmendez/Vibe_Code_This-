@@ -41,12 +41,10 @@ class CustomTextEditor(QTextEdit):
         self.block_format = QTextCharFormat()
         self.block_format.setBackground(QColor("#E8E8E8")) # Lighter grey
         
-        # Adding a thin outline to text to simulate border feel since inline background borders aren't natively supported
-        pen = QPen(QColor("black"))
-        pen.setWidthF(0.5)
-        self.block_format.setTextOutline(pen)
-        
-        self.block_format.setProperty(QTextCharFormat.Property.UserProperty, True)
+        # Simulate an inline border using overline and underline
+        self.block_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SingleUnderline)
+        self.block_format.setUnderlineColor(QColor("black"))
+        self.block_format.setFontOverline(True)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Tab:
@@ -70,12 +68,15 @@ class CustomTextEditor(QTextEdit):
         if event.button() == Qt.MouseButton.LeftButton:
             cursor = self.cursorForPosition(event.pos())
             fmt = cursor.charFormat()
-            if fmt.property(QTextCharFormat.Property.UserProperty) == True:
-                # Find boundaries
+            bg_color = fmt.background().color()
+            
+            # Detect by background color since UserProperty doesn't survive HTML serialization
+            if bg_color.isValid() and bg_color.name().upper() == "#E8E8E8":
                 left_cursor = QTextCursor(cursor)
                 while left_cursor.position() > 0:
                     left_cursor.movePosition(QTextCursor.MoveOperation.Left)
-                    if left_cursor.charFormat().property(QTextCharFormat.Property.UserProperty) != True:
+                    left_bg = left_cursor.charFormat().background().color()
+                    if not left_bg.isValid() or left_bg.name().upper() != "#E8E8E8":
                         left_cursor.movePosition(QTextCursor.MoveOperation.Right)
                         break
                         
@@ -83,7 +84,8 @@ class CustomTextEditor(QTextEdit):
                 doc_length = self.document().characterCount()
                 while right_cursor.position() < doc_length - 1:
                     right_cursor.movePosition(QTextCursor.MoveOperation.Right)
-                    if right_cursor.charFormat().property(QTextCharFormat.Property.UserProperty) != True:
+                    right_bg = right_cursor.charFormat().background().color()
+                    if not right_bg.isValid() or right_bg.name().upper() != "#E8E8E8":
                         break
                         
                 selection_cursor = QTextCursor(left_cursor)

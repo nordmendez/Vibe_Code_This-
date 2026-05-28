@@ -6,8 +6,10 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QListWidget, QTextEdit, QLineEdit, QSplitter,
                              QColorDialog, QInputDialog, QMessageBox, QMenu,
                              QTreeWidgetItem, QListWidgetItem, QFontComboBox, QFileDialog)
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer
-from PyQt6.QtGui import QTextCharFormat, QColor, QCursor, QGuiApplication, QTextCursor, QFont, QTextListFormat, QPen, QTextTableFormat, QBrush, QTextFrameFormat
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QRectF
+from PyQt6.QtGui import (QTextCharFormat, QColor, QCursor, QGuiApplication, 
+                         QTextCursor, QFont, QTextListFormat, QPen, 
+                         QTextTableFormat, QBrush, QTextFrameFormat, QPainter)
 
 class ToastWidget(QLabel):
     def __init__(self, parent=None):
@@ -35,6 +37,9 @@ class ToastWidget(QLabel):
         QTimer.singleShot(1000, self.hide)
 
 class CustomTextEditor(QTextEdit):
+    # Class level constant for the lightened copy box background
+    COPY_BG = "#FAFAFA"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setPlaceholderText("Press tab for copy cblock")
@@ -43,8 +48,8 @@ class CustomTextEditor(QTextEdit):
         self.default_format = QTextCharFormat()
         
         self.block_format = QTextCharFormat()
-        self.block_format.setBackground(QColor("#F5F5F5"))
-        self.block_format.setFontFamily("Courier") # Use monospace to make it distinct instead of a border
+        self.block_format.setBackground(QColor(self.COPY_BG))
+        self.block_format.setFontFamily("Courier")
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Tab:
@@ -70,12 +75,12 @@ class CustomTextEditor(QTextEdit):
             fmt = cursor.charFormat()
             bg_color = fmt.background().color()
             
-            if bg_color.isValid() and bg_color.name().upper() == "#F5F5F5":
+            if bg_color.isValid() and bg_color.name().upper() == self.COPY_BG:
                 left_cursor = QTextCursor(cursor)
                 while left_cursor.position() > 0:
                     left_cursor.movePosition(QTextCursor.MoveOperation.Left)
                     left_bg = left_cursor.charFormat().background().color()
-                    if not left_bg.isValid() or left_bg.name().upper() != "#F5F5F5":
+                    if not left_bg.isValid() or left_bg.name().upper() != self.COPY_BG:
                         left_cursor.movePosition(QTextCursor.MoveOperation.Right)
                         break
                         
@@ -84,7 +89,7 @@ class CustomTextEditor(QTextEdit):
                 while right_cursor.position() < doc_length - 1:
                     right_cursor.movePosition(QTextCursor.MoveOperation.Right)
                     right_bg = right_cursor.charFormat().background().color()
-                    if not right_bg.isValid() or right_bg.name().upper() != "#F5F5F5":
+                    if not right_bg.isValid() or right_bg.name().upper() != self.COPY_BG:
                         break
                         
                 selection_cursor = QTextCursor(left_cursor)
@@ -95,6 +100,66 @@ class CustomTextEditor(QTextEdit):
                     if not hasattr(self, 'toast'):
                         self.toast = ToastWidget()
                     self.toast.show_toast(event.globalPosition().toPoint())
+
+    def paintEvent(self, event):
+        # Draw the standard text and background highlight first
+        super().paintEvent(event)
+        
+        # Use QPainter to draw a clean, thin border around the copy block(s)
+        painter = QPainter(self.viewport())
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # Thin neutral grey/black border for maximum premium styling
+        pen = QPen(QColor("#888888"), 1, Qt.PenStyle.SolidLine)
+        painter.setPen(pen)
+        
+        doc = self.document()
+        doc_layout = doc.documentLayout()
+        
+        x_offset = self.horizontalScrollBar().value()
+        y_offset = self.verticalScrollBar().value()
+        margin = doc.documentMargin()
+        
+        block = doc.begin()
+        while block.isValid():
+            block_rect = doc_layout.blockBoundingRect(block)
+            block_pos = block_rect.topLeft()
+            
+            formats = block.textFormats()
+            for fmt_range in formats:
+                start = fmt_range.start
+                length = fmt_range.length
+                fmt = fmt_range.format
+                
+                bg_color = fmt.background().color()
+                if bg_color.isValid() and bg_color.name().upper() == self.COPY_BG:
+                    run_start = start
+                    run_end = start + length
+                    block_layout = block.layout()
+                    
+                    for line_idx in range(block_layout.lineCount()):
+                        line = block_layout.lineAt(line_idx)
+                        line_start = line.textStart()
+                        line_end = line_start + line.textLength()
+                        
+                        intersect_start = max(run_start, line_start)
+                        intersect_end = min(run_end, line_end)
+                        
+                        if intersect_start < intersect_end:
+                            x1 = line.cursorToX(intersect_start)[0]
+                            x2 = line.cursorToX(intersect_end)[0]
+                            
+                            line_rect = line.rect()
+                            vx1 = block_pos.x() + x1 - x_offset + margin
+                            vx2 = block_pos.x() + x2 - x_offset + margin
+                            vy = block_pos.y() + line_rect.y() - y_offset + margin
+                            vh = line_rect.height()
+                            
+                            # Draw a precise border around the text run segment
+                            rect = QRectF(vx1 - 1, vy + 1, (vx2 - vx1) + 2, vh - 2)
+                            painter.drawRect(rect)
+            
+            block = block.next()
 
 class TranslucentWindow(QWidget):
     def __init__(self, text_content):

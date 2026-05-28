@@ -16,10 +16,11 @@ class ToastWidget(QLabel):
         super().__init__(parent)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.ToolTip | Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("""
             QLabel {
-                background-color: black;
-                color: white;
+                background-color: #000000;
+                color: #FFFFFF;
                 border-radius: 4px;
                 padding: 6px 12px;
                 font-size: 14px;

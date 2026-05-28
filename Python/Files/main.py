@@ -2,7 +2,77 @@ import sys
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QPushButton, QLabel, QTreeWidget, 
                              QListWidget, QTextEdit, QLineEdit, QSplitter)
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QTextCharFormat, QColor, QCursor, QGuiApplication
+
+class TranslucentWindow(QWidget):
+    def __init__(self, text_content):
+        super().__init__()
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+        self.setWindowOpacity(0.8)
+        self.resize(300, 200)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Header with close button
+        header = QHBoxLayout()
+        header.addStretch()
+        btn_close = QPushButton("×")
+        btn_close.setFixedSize(20, 20)
+        btn_close.clicked.connect(self.close)
+        header.addWidget(btn_close)
+        layout.addLayout(header)
+        
+        self.text_display = QTextEdit()
+        self.text_display.setReadOnly(True)
+        self.text_display.setHtml(text_content)
+        layout.addWidget(self.text_display)
+
+class CustomTextEditor(QTextEdit):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setPlaceholderText("Press tab for copy cblock")
+        self.in_copy_block = False
+        
+        self.default_format = QTextCharFormat()
+        
+        self.block_format = QTextCharFormat()
+        self.block_format.setBackground(QColor("lightgray"))
+        # Using a custom property to identify the block
+        self.block_format.setProperty(QTextCharFormat.Property.UserProperty, True)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Tab:
+            self.in_copy_block = True
+            self.setCurrentCharFormat(self.block_format)
+            return  # Intercept Tab
+        
+        if event.key() in (Qt.Key.Key_Space, Qt.Key.Key_Return):
+            if self.in_copy_block:
+                self.in_copy_block = False
+                self.setCurrentCharFormat(self.default_format)
+        
+        super().keyPressEvent(event)
+        
+        # Re-apply format if still in copy block (since some actions might reset it)
+        if self.in_copy_block and self.currentCharFormat() != self.block_format:
+            self.setCurrentCharFormat(self.block_format)
+
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        if event.button() == Qt.MouseButton.LeftButton:
+            cursor = self.cursorForPosition(event.pos())
+            fmt = cursor.charFormat()
+            if fmt.property(QTextCharFormat.Property.UserProperty) == True:
+                # Find the full block
+                cursor.select(cursor.SelectionType.WordUnderCursor)
+                # Note: Word selection might not grab the whole block if it has spaces,
+                # but spaces exit the block, so blocks are basically words.
+                selected_text = cursor.selectedText()
+                if selected_text:
+                    QGuiApplication.clipboard().setText(selected_text)
+                    print("Copied to clipboard:", selected_text)
+
 
 class VibeCodeThisWindow(QMainWindow):
     def __init__(self):
@@ -91,10 +161,12 @@ class VibeCodeThisWindow(QMainWindow):
         self.col3_header.addStretch()
         self.col3_header.addWidget(self.btn_trans)
         
-        self.text_editor = QTextEdit()
+        self.text_editor = CustomTextEditor()
         
         self.col3_layout.addLayout(self.col3_header)
         self.col3_layout.addWidget(self.text_editor)
+        
+        self.btn_trans.clicked.connect(self.spawn_translucent_window)
         
         # Add columns to splitter
         self.splitter.addWidget(self.col1_widget)
@@ -104,6 +176,10 @@ class VibeCodeThisWindow(QMainWindow):
         self.splitter.setSizes([300, 300, 600])
         
         self.main_layout.addWidget(self.splitter)
+
+    def spawn_translucent_window(self):
+        self.trans_win = TranslucentWindow(self.text_editor.toHtml())
+        self.trans_win.show()
 
     def custom_close(self):
         # TODO: Save state to default JSON

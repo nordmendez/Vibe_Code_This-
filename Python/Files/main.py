@@ -608,21 +608,24 @@ class VibeCodeThisWindow(QMainWindow):
             item.setData(Qt.ItemDataRole.UserRole, self.text_editor.toHtml())
             self.save_current_folder_tasks(self.tree_folders.currentItem())
 
-    def custom_close(self):
+    def closeEvent(self, event):
         if self.unsaved_changes:
             reply = QMessageBox.question(self, "Unsaved Changes", 
                                          "You have unsaved changes. Save before closing?",
                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel)
             if reply == QMessageBox.StandardButton.Yes:
                 self.save_workspace()
-                self.close()
+                event.accept()
             elif reply == QMessageBox.StandardButton.No:
-                self.close()
+                event.accept()
             else:
-                pass # Cancel
+                event.ignore()
         else:
             self.save_workspace() # silent save to default just in case
-            self.close()
+            event.accept()
+
+    def custom_close(self):
+        self.close()
 
 def main():
     app = QApplication(sys.argv)

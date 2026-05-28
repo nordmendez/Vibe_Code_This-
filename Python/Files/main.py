@@ -1,7 +1,9 @@
 import sys
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QPushButton, QLabel, QTreeWidget, 
-                             QListWidget, QTextEdit, QLineEdit, QSplitter)
+                             QListWidget, QTextEdit, QLineEdit, QSplitter,
+                             QColorDialog, QInputDialog, QMessageBox, QMenu,
+                             QTreeWidgetItem, QListWidgetItem)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QTextCharFormat, QColor, QCursor, QGuiApplication
 
@@ -66,13 +68,10 @@ class CustomTextEditor(QTextEdit):
             if fmt.property(QTextCharFormat.Property.UserProperty) == True:
                 # Find the full block
                 cursor.select(cursor.SelectionType.WordUnderCursor)
-                # Note: Word selection might not grab the whole block if it has spaces,
-                # but spaces exit the block, so blocks are basically words.
                 selected_text = cursor.selectedText()
                 if selected_text:
                     QGuiApplication.clipboard().setText(selected_text)
                     print("Copied to clipboard:", selected_text)
-
 
 class VibeCodeThisWindow(QMainWindow):
     def __init__(self):
@@ -82,12 +81,10 @@ class VibeCodeThisWindow(QMainWindow):
         self.init_ui()
 
     def init_ui(self):
-        # Central Widget
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.main_layout = QVBoxLayout(self.central_widget)
         
-        # --- Top Row Controls ---
         self.top_row_layout = QHBoxLayout()
         self.btn_import = QPushButton("Import")
         self.btn_save_as = QPushButton("Save As")
@@ -103,13 +100,11 @@ class VibeCodeThisWindow(QMainWindow):
         
         self.main_layout.addLayout(self.top_row_layout)
         
-        # --- Three-Column Interface ---
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         
-        # Column 1: Folder Tree
+        # Column 1
         self.col1_widget = QWidget()
         self.col1_layout = QVBoxLayout(self.col1_widget)
-        
         self.col1_header = QHBoxLayout()
         self.lbl_col1 = QLabel("Folders")
         self.btn_add_folder = QPushButton("+")
@@ -120,6 +115,10 @@ class VibeCodeThisWindow(QMainWindow):
         self.tree_folders = QTreeWidget()
         self.tree_folders.setHeaderHidden(True)
         self.tree_folders.setDragDropMode(QTreeWidget.DragDropMode.InternalMove)
+        self.tree_folders.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tree_folders.customContextMenuRequested.connect(self.show_folder_context_menu)
+        self.tree_folders.currentItemChanged.connect(self.on_folder_selected)
+        self.btn_add_folder.clicked.connect(self.add_folder)
         
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("Search folders...")
@@ -128,10 +127,9 @@ class VibeCodeThisWindow(QMainWindow):
         self.col1_layout.addWidget(self.tree_folders)
         self.col1_layout.addWidget(self.search_box)
         
-        # Column 2: Task List
+        # Column 2
         self.col2_widget = QWidget()
         self.col2_layout = QVBoxLayout(self.col2_widget)
-        
         self.col2_header = QHBoxLayout()
         self.lbl_col2 = QLabel("Tasks")
         self.btn_add_task = QPushButton("+")
@@ -141,14 +139,16 @@ class VibeCodeThisWindow(QMainWindow):
         
         self.list_tasks = QListWidget()
         self.list_tasks.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+        self.btn_add_task.clicked.connect(self.add_task)
+        self.list_tasks.currentItemChanged.connect(self.on_task_selected)
         
         self.col2_layout.addLayout(self.col2_header)
         self.col2_layout.addWidget(self.list_tasks)
         
-        # Column 3: Notes & Code Area
+        # Column 3
         self.col3_widget = QWidget()
+        self.col3_widget.setObjectName("Col3Widget")
         self.col3_layout = QVBoxLayout(self.col3_widget)
-        
         self.col3_header = QHBoxLayout()
         self.btn_toggle_edit = QPushButton("✏️")
         self.btn_attach_file = QPushButton("Attach File")
@@ -162,17 +162,16 @@ class VibeCodeThisWindow(QMainWindow):
         self.col3_header.addWidget(self.btn_trans)
         
         self.text_editor = CustomTextEditor()
+        self.text_editor.textChanged.connect(self.save_task_note)
+        self.btn_toggle_edit.clicked.connect(self.toggle_edit_mode)
+        self.btn_trans.clicked.connect(self.spawn_translucent_window)
         
         self.col3_layout.addLayout(self.col3_header)
         self.col3_layout.addWidget(self.text_editor)
         
-        self.btn_trans.clicked.connect(self.spawn_translucent_window)
-        
-        # Add columns to splitter
         self.splitter.addWidget(self.col1_widget)
         self.splitter.addWidget(self.col2_widget)
         self.splitter.addWidget(self.col3_widget)
-        
         self.splitter.setSizes([300, 300, 600])
         
         self.main_layout.addWidget(self.splitter)
@@ -180,6 +179,101 @@ class VibeCodeThisWindow(QMainWindow):
     def spawn_translucent_window(self):
         self.trans_win = TranslucentWindow(self.text_editor.toHtml())
         self.trans_win.show()
+
+    def add_folder(self):
+        name, ok = QInputDialog.getText(self, "New Folder", "Folder Name:")
+        if ok and name:
+            color = QColorDialog.getColor(title="Optional Folder Color")
+            parent = self.tree_folders.currentItem() or self.tree_folders.invisibleRootItem()
+            item = QTreeWidgetItem(parent)
+            item.setText(0, name)
+            if color.isValid():
+                self.apply_color_to_folder(item, color)
+
+    def apply_color_to_folder(self, item, color):
+        item.setData(0, Qt.ItemDataRole.UserRole, color)
+        item.setForeground(0, color)
+        for i in range(item.childCount()):
+            self.apply_color_to_folder(item.child(i), color)
+        
+        if item == self.tree_folders.currentItem():
+            self.update_cascading_color(color)
+
+    def update_cascading_color(self, color):
+        color_name = color.name() if color and color.isValid() else "transparent"
+        for i in range(self.list_tasks.count()):
+            self.list_tasks.item(i).setForeground(color if color and color.isValid() else Qt.GlobalColor.black)
+        
+        border_style = f"2px solid {color_name}" if color_name != "transparent" else "none"
+        self.col3_widget.setStyleSheet(f"#Col3Widget {{ border: {border_style}; }}")
+
+    def show_folder_context_menu(self, pos):
+        item = self.tree_folders.itemAt(pos)
+        if not item: return
+        menu = QMenu()
+        a_rename = menu.addAction("Rename")
+        a_dup = menu.addAction("Duplicate")
+        a_del = menu.addAction("Delete")
+        a_color = menu.addAction("Change Color")
+        
+        action = menu.exec(self.tree_folders.mapToGlobal(pos))
+        if action == a_rename:
+            name, ok = QInputDialog.getText(self, "Rename", "New Name:", text=item.text(0))
+            if ok and name: item.setText(0, name)
+        elif action == a_dup:
+            parent = item.parent() or self.tree_folders.invisibleRootItem()
+            new_item = QTreeWidgetItem(parent)
+            new_item.setText(0, item.text(0) + " (copy)")
+            color = item.data(0, Qt.ItemDataRole.UserRole)
+            if color: self.apply_color_to_folder(new_item, color)
+        elif action == a_del:
+            if QMessageBox.question(self, "Confirm", "Delete folder?") == QMessageBox.StandardButton.Yes:
+                parent = item.parent() or self.tree_folders.invisibleRootItem()
+                parent.removeChild(item)
+        elif action == a_color:
+            color = QColorDialog.getColor()
+            if color.isValid():
+                self.apply_color_to_folder(item, color)
+
+    def on_folder_selected(self, current, previous):
+        if current:
+            self.lbl_selected_folder.setText(current.text(0))
+            color = current.data(0, Qt.ItemDataRole.UserRole)
+            self.update_cascading_color(color)
+
+    def add_task(self):
+        folder = self.tree_folders.currentItem()
+        if not folder:
+            QMessageBox.warning(self, "No Folder", "Select a folder first.")
+            return
+        name, ok = QInputDialog.getText(self, "New Task", "Task Title:")
+        if ok and name:
+            item = QListWidgetItem(name)
+            color = folder.data(0, Qt.ItemDataRole.UserRole)
+            if color and color.isValid(): item.setForeground(color)
+            self.list_tasks.addItem(item)
+
+    def on_task_selected(self, current, previous):
+        if current:
+            note_content = current.data(Qt.ItemDataRole.UserRole) or ""
+            self.text_editor.blockSignals(True)
+            self.text_editor.setHtml(note_content)
+            self.text_editor.blockSignals(False)
+            if not note_content.strip():
+                self.text_editor.setReadOnly(False)
+            else:
+                self.text_editor.setReadOnly(True)
+        else:
+            self.text_editor.clear()
+            self.text_editor.setReadOnly(True)
+
+    def toggle_edit_mode(self):
+        self.text_editor.setReadOnly(not self.text_editor.isReadOnly())
+
+    def save_task_note(self):
+        item = self.list_tasks.currentItem()
+        if item:
+            item.setData(Qt.ItemDataRole.UserRole, self.text_editor.toHtml())
 
     def custom_close(self):
         # TODO: Save state to default JSON

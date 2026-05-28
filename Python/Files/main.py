@@ -16,16 +16,11 @@ class ToastWidget(QLabel):
         super().__init__(parent)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.ToolTip | Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("""
-            QLabel {
-                background-color: #000000;
-                color: #FFFFFF;
-                border-radius: 4px;
-                padding: 6px 12px;
-                font-size: 14px;
-                font-weight: bold;
-            }
+            color: #FFFFFF;
+            padding: 6px 12px;
+            font-size: 14px;
+            font-weight: bold;
         """)
         self.setText("Copied to clipboard!")
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -36,6 +31,15 @@ class ToastWidget(QLabel):
         self.move(pos.x() - self.width() // 2, pos.y() - self.height() // 2)
         self.show()
         QTimer.singleShot(1000, self.hide)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(QBrush(QColor("#000000")))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawRoundedRect(self.rect(), 4.0, 4.0)
+        painter.end()
+        super().paintEvent(event)
 
 class CustomTextEditor(QTextEdit):
     # Class level constant for the lightened copy box background

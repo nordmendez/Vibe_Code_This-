@@ -39,50 +39,62 @@ class CustomTextEditor(QTextEdit):
         super().__init__(*args, **kwargs)
         self.setPlaceholderText("Press tab for copy cblock")
         self.in_copy_block = False
+        
+        self.default_format = QTextCharFormat()
+        
+        self.block_format = QTextCharFormat()
+        self.block_format.setBackground(QColor("#F5F5F5"))
+        self.block_format.setFontFamily("Courier") # Use monospace to make it distinct instead of a border
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Tab:
-            cursor = self.textCursor()
-            table_format = QTextTableFormat()
-            table_format.setBackground(QColor("#F5F5F5"))
-            table_format.setBorder(1)
-            table_format.setBorderBrush(QBrush(QColor("black")))
-            table_format.setBorderStyle(QTextFrameFormat.BorderStyle.BorderStyle_Solid)
-            table_format.setCellPadding(5)
-            table_format.setCellSpacing(0)
-            cursor.insertTable(1, 1, table_format)
             self.in_copy_block = True
-            return
-
+            self.setCurrentCharFormat(self.block_format)
+            return  # Intercept Tab
+        
         if event.key() in (Qt.Key.Key_Space, Qt.Key.Key_Return):
             if self.in_copy_block:
                 self.in_copy_block = False
-                cursor = self.textCursor()
-                cursor.movePosition(QTextCursor.MoveOperation.NextBlock)
-                self.setTextCursor(cursor)
-                return
-
+                self.setCurrentCharFormat(self.default_format)
+        
         super().keyPressEvent(event)
+        
+        # Re-apply format if still in copy block
+        if self.in_copy_block and self.currentCharFormat() != self.block_format:
+            self.setCurrentCharFormat(self.block_format)
 
     def mousePressEvent(self, event):
         super().mousePressEvent(event)
         if event.button() == Qt.MouseButton.LeftButton:
             cursor = self.cursorForPosition(event.pos())
-            table = cursor.currentTable()
-            if table:
-                fmt = table.format()
-                bg = fmt.background().color()
-                if bg.isValid() and bg.name().upper() == "#F5F5F5":
-                    cell = table.cellAt(0, 0)
-                    if cell.isValid():
-                        cell_cursor = cell.firstCursorPosition()
-                        cell_cursor.setPosition(cell.lastCursorPosition().position(), QTextCursor.MoveMode.KeepAnchor)
-                        text = cell_cursor.selectedText().replace('\u2029', '\n')
-                        if text:
-                            QGuiApplication.clipboard().setText(text)
-                            if not hasattr(self, 'toast'):
-                                self.toast = ToastWidget()
-                            self.toast.show_toast(event.globalPosition().toPoint())
+            fmt = cursor.charFormat()
+            bg_color = fmt.background().color()
+            
+            if bg_color.isValid() and bg_color.name().upper() == "#F5F5F5":
+                left_cursor = QTextCursor(cursor)
+                while left_cursor.position() > 0:
+                    left_cursor.movePosition(QTextCursor.MoveOperation.Left)
+                    left_bg = left_cursor.charFormat().background().color()
+                    if not left_bg.isValid() or left_bg.name().upper() != "#F5F5F5":
+                        left_cursor.movePosition(QTextCursor.MoveOperation.Right)
+                        break
+                        
+                right_cursor = QTextCursor(cursor)
+                doc_length = self.document().characterCount()
+                while right_cursor.position() < doc_length - 1:
+                    right_cursor.movePosition(QTextCursor.MoveOperation.Right)
+                    right_bg = right_cursor.charFormat().background().color()
+                    if not right_bg.isValid() or right_bg.name().upper() != "#F5F5F5":
+                        break
+                        
+                selection_cursor = QTextCursor(left_cursor)
+                selection_cursor.setPosition(right_cursor.position(), QTextCursor.MoveMode.KeepAnchor)
+                selected_text = selection_cursor.selectedText()
+                if selected_text:
+                    QGuiApplication.clipboard().setText(selected_text)
+                    if not hasattr(self, 'toast'):
+                        self.toast = ToastWidget()
+                    self.toast.show_toast(event.globalPosition().toPoint())
 
 class TranslucentWindow(QWidget):
     def __init__(self, text_content):

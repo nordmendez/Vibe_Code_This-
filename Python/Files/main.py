@@ -18,11 +18,11 @@ class ToastWidget(QLabel):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setStyleSheet("""
             QLabel {
-                background-color: rgba(0, 0, 0, 200);
+                background-color: black;
                 color: white;
-                border-radius: 10px;
-                padding: 15px;
-                font-size: 24px;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-size: 14px;
                 font-weight: bold;
             }
         """)
@@ -156,7 +156,8 @@ class CustomTextEditor(QTextEdit):
                             vh = line_rect.height()
                             
                             # Draw a precise border around the text run segment
-                            rect = QRectF(vx1 - 1, vy + 1, (vx2 - vx1) + 2, vh - 2)
+                            # Shifted vy up by 1px (vy instead of vy + 1) to align perfectly with baseline
+                            rect = QRectF(vx1 - 1, vy, (vx2 - vx1) + 2, vh - 2)
                             painter.drawRect(rect)
             
             block = block.next()

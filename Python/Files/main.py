@@ -42,8 +42,7 @@ class CustomTextEditor(QTextEdit):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setPlaceholderText("Press tab for copy cblock")
-        self.in_copy_block = False
+        self.setPlaceholderText("Select text and click '🔲 Copy' to make it a copy block")
         
         self.default_format = QTextCharFormat()
         
@@ -51,22 +50,13 @@ class CustomTextEditor(QTextEdit):
         self.block_format.setBackground(QColor(self.COPY_BG))
         self.block_format.setFontFamily("Courier")
 
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Tab:
-            self.in_copy_block = True
-            self.setCurrentCharFormat(self.block_format)
-            return  # Intercept Tab
-        
-        if event.key() in (Qt.Key.Key_Space, Qt.Key.Key_Return):
-            if self.in_copy_block:
-                self.in_copy_block = False
-                self.setCurrentCharFormat(self.default_format)
-        
-        super().keyPressEvent(event)
-        
-        # Re-apply format if still in copy block
-        if self.in_copy_block and self.currentCharFormat() != self.block_format:
-            self.setCurrentCharFormat(self.block_format)
+    def create_copy_block(self):
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            cursor.mergeCharFormat(self.block_format)
+            cursor.clearSelection()
+            self.setTextCursor(cursor)
+            self.setCurrentCharFormat(self.default_format)
 
     def mousePressEvent(self, event):
         super().mousePressEvent(event)
@@ -311,6 +301,10 @@ class VibeCodeThisWindow(QMainWindow):
         self.btn_number = QPushButton("1. List")
         self.btn_number.clicked.connect(self.insert_number)
         self.format_layout.addWidget(self.btn_number)
+        
+        self.btn_copy_block = QPushButton("🔲 Copy")
+        self.btn_copy_block.clicked.connect(self.format_as_copy_block)
+        self.format_layout.addWidget(self.btn_copy_block)
         
         self.text_editor = CustomTextEditor()
         self.text_editor.textChanged.connect(self.save_task_note)
@@ -566,6 +560,10 @@ class VibeCodeThisWindow(QMainWindow):
     def insert_number(self):
         cursor = self.text_editor.textCursor()
         cursor.createList(QTextListFormat.Style.ListDecimal)
+        self.mark_unsaved()
+
+    def format_as_copy_block(self):
+        self.text_editor.create_copy_block()
         self.mark_unsaved()
 
     def toggle_edit_mode(self):

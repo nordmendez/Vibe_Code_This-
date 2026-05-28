@@ -156,8 +156,8 @@ class CustomTextEditor(QTextEdit):
                             vh = line_rect.height()
                             
                             # Draw a precise border around the text run segment
-                            # Shifted vy up by 1px (vy instead of vy + 1) to align perfectly with baseline
-                            rect = QRectF(vx1 - 1, vy, (vx2 - vx1) + 2, vh - 2)
+                            # Shifted left by 1px (vx1 - 2) and up by 1px (vy - 1) as requested by user
+                            rect = QRectF(vx1 - 2, vy - 1, (vx2 - vx1) + 3, vh - 1)
                             painter.drawRect(rect)
             
             block = block.next()

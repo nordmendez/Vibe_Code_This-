@@ -1,11 +1,88 @@
 import sys
+import json
+import os
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QPushButton, QLabel, QTreeWidget, 
                              QListWidget, QTextEdit, QLineEdit, QSplitter,
                              QColorDialog, QInputDialog, QMessageBox, QMenu,
-                             QTreeWidgetItem, QListWidgetItem, QToolTip, QFontComboBox)
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QTextCharFormat, QColor, QCursor, QGuiApplication, QTextCursor, QFont, QTextListFormat, QPen
+                             QTreeWidgetItem, QListWidgetItem, QFontComboBox, QFileDialog)
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer
+from PyQt6.QtGui import QTextCharFormat, QColor, QCursor, QGuiApplication, QTextCursor, QFont, QTextListFormat, QPen, QTextTableFormat, QBrush, QTextFrameFormat
+
+class ToastWidget(QLabel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.ToolTip | Qt.WindowType.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setStyleSheet("""
+            QLabel {
+                background-color: rgba(0, 0, 0, 200);
+                color: white;
+                border-radius: 10px;
+                padding: 15px;
+                font-size: 24px;
+                font-weight: bold;
+            }
+        """)
+        self.setText("Copied to clipboard!")
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.hide()
+        
+    def show_toast(self, pos):
+        self.adjustSize()
+        self.move(pos.x() - self.width() // 2, pos.y() - self.height() // 2)
+        self.show()
+        QTimer.singleShot(1000, self.hide)
+
+class CustomTextEditor(QTextEdit):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setPlaceholderText("Press tab for copy cblock")
+        self.in_copy_block = False
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Tab:
+            cursor = self.textCursor()
+            table_format = QTextTableFormat()
+            table_format.setBackground(QColor("#F5F5F5"))
+            table_format.setBorder(1)
+            table_format.setBorderBrush(QBrush(QColor("black")))
+            table_format.setBorderStyle(QTextFrameFormat.BorderStyle.BorderStyle_Solid)
+            table_format.setCellPadding(5)
+            table_format.setCellSpacing(0)
+            cursor.insertTable(1, 1, table_format)
+            self.in_copy_block = True
+            return
+
+        if event.key() in (Qt.Key.Key_Space, Qt.Key.Key_Return):
+            if self.in_copy_block:
+                self.in_copy_block = False
+                cursor = self.textCursor()
+                cursor.movePosition(QTextCursor.MoveOperation.NextBlock)
+                self.setTextCursor(cursor)
+                return
+
+        super().keyPressEvent(event)
+
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        if event.button() == Qt.MouseButton.LeftButton:
+            cursor = self.cursorForPosition(event.pos())
+            table = cursor.currentTable()
+            if table:
+                fmt = table.format()
+                bg = fmt.background().color()
+                if bg.isValid() and bg.name().upper() == "#F5F5F5":
+                    cell = table.cellAt(0, 0)
+                    if cell.isValid():
+                        cell_cursor = cell.firstCursorPosition()
+                        cell_cursor.setPosition(cell.lastCursorPosition().position(), QTextCursor.MoveMode.KeepAnchor)
+                        text = cell_cursor.selectedText().replace('\u2029', '\n')
+                        if text:
+                            QGuiApplication.clipboard().setText(text)
+                            if not hasattr(self, 'toast'):
+                                self.toast = ToastWidget()
+                            self.toast.show_toast(event.globalPosition().toPoint())
 
 class TranslucentWindow(QWidget):
     def __init__(self, text_content):
@@ -25,83 +102,20 @@ class TranslucentWindow(QWidget):
         header.addWidget(btn_close)
         layout.addLayout(header)
         
-        self.text_display = QTextEdit()
+        # Re-use CustomTextEditor so copy block works here too
+        self.text_display = CustomTextEditor()
         self.text_display.setReadOnly(True)
         self.text_display.setHtml(text_content)
         layout.addWidget(self.text_display)
-
-class CustomTextEditor(QTextEdit):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setPlaceholderText("Press tab for copy cblock")
-        self.in_copy_block = False
-        
-        self.default_format = QTextCharFormat()
-        
-        self.block_format = QTextCharFormat()
-        self.block_format.setBackground(QColor("#E8E8E8")) # Lighter grey
-        
-        # Simulate an inline border using overline and underline
-        self.block_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SingleUnderline)
-        self.block_format.setUnderlineColor(QColor("black"))
-        self.block_format.setFontOverline(True)
-
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Tab:
-            self.in_copy_block = True
-            self.setCurrentCharFormat(self.block_format)
-            return  # Intercept Tab
-        
-        if event.key() in (Qt.Key.Key_Space, Qt.Key.Key_Return):
-            if self.in_copy_block:
-                self.in_copy_block = False
-                self.setCurrentCharFormat(self.default_format)
-        
-        super().keyPressEvent(event)
-        
-        # Re-apply format if still in copy block
-        if self.in_copy_block and self.currentCharFormat() != self.block_format:
-            self.setCurrentCharFormat(self.block_format)
-
-    def mousePressEvent(self, event):
-        super().mousePressEvent(event)
-        if event.button() == Qt.MouseButton.LeftButton:
-            cursor = self.cursorForPosition(event.pos())
-            fmt = cursor.charFormat()
-            bg_color = fmt.background().color()
-            
-            # Detect by background color since UserProperty doesn't survive HTML serialization
-            if bg_color.isValid() and bg_color.name().upper() == "#E8E8E8":
-                left_cursor = QTextCursor(cursor)
-                while left_cursor.position() > 0:
-                    left_cursor.movePosition(QTextCursor.MoveOperation.Left)
-                    left_bg = left_cursor.charFormat().background().color()
-                    if not left_bg.isValid() or left_bg.name().upper() != "#E8E8E8":
-                        left_cursor.movePosition(QTextCursor.MoveOperation.Right)
-                        break
-                        
-                right_cursor = QTextCursor(cursor)
-                doc_length = self.document().characterCount()
-                while right_cursor.position() < doc_length - 1:
-                    right_cursor.movePosition(QTextCursor.MoveOperation.Right)
-                    right_bg = right_cursor.charFormat().background().color()
-                    if not right_bg.isValid() or right_bg.name().upper() != "#E8E8E8":
-                        break
-                        
-                selection_cursor = QTextCursor(left_cursor)
-                selection_cursor.setPosition(right_cursor.position(), QTextCursor.MoveMode.KeepAnchor)
-                selected_text = selection_cursor.selectedText()
-                if selected_text:
-                    QGuiApplication.clipboard().setText(selected_text)
-                    QToolTip.showText(QCursor.pos(), "Copied to clip board", self)
-
 
 class VibeCodeThisWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Vibe_Code-This")
         self.setGeometry(100, 100, 1200, 700)
+        self.unsaved_changes = False
         self.init_ui()
+        self.load_workspace()
 
     def init_ui(self):
         self.central_widget = QWidget()
@@ -114,6 +128,9 @@ class VibeCodeThisWindow(QMainWindow):
         self.lbl_selected_folder = QLabel("Select a folder")
         self.lbl_selected_folder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.btn_close = QPushButton("Close")
+        
+        self.btn_import.clicked.connect(self.btn_import_clicked)
+        self.btn_save_as.clicked.connect(self.btn_save_as_clicked)
         self.btn_close.clicked.connect(self.custom_close)
         
         self.top_row_layout.addWidget(self.btn_import)
@@ -141,6 +158,7 @@ class VibeCodeThisWindow(QMainWindow):
         self.tree_folders.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree_folders.customContextMenuRequested.connect(self.show_folder_context_menu)
         self.tree_folders.currentItemChanged.connect(self.on_folder_selected)
+        self.tree_folders.model().rowsMoved.connect(self.mark_unsaved)
         self.btn_add_folder.clicked.connect(self.add_folder)
         
         self.search_box = QLineEdit()
@@ -234,21 +252,93 @@ class VibeCodeThisWindow(QMainWindow):
         
         self.main_layout.addWidget(self.splitter)
 
+    def mark_unsaved(self):
+        self.unsaved_changes = True
+
+    def btn_import_clicked(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Import Workspace", "", "JSON Files (*.json)")
+        if path:
+            self.load_workspace(path)
+
+    def btn_save_as_clicked(self):
+        path, _ = QFileDialog.getSaveFileName(self, "Save Workspace", "workspace.json", "JSON Files (*.json)")
+        if path:
+            self.save_workspace(path)
+
     def spawn_translucent_window(self):
         self.trans_win = TranslucentWindow(self.text_editor.toHtml())
         self.trans_win.show()
+
+    def serialize_folder(self, item):
+        color = item.data(0, Qt.ItemDataRole.UserRole)
+        tasks = item.data(0, Qt.ItemDataRole.UserRole + 1) or []
+        folder_data = {
+            "name": item.text(0),
+            "color": color.name() if color and color.isValid() else None,
+            "tasks": tasks,
+            "subfolders": []
+        }
+        for i in range(item.childCount()):
+            folder_data["subfolders"].append(self.serialize_folder(item.child(i)))
+        return folder_data
+
+    def save_workspace(self, filepath="workspace.json"):
+        if self.tree_folders.currentItem():
+            self.save_current_folder_tasks(self.tree_folders.currentItem())
+            
+        data = {"folders": []}
+        root = self.tree_folders.invisibleRootItem()
+        for i in range(root.childCount()):
+            data["folders"].append(self.serialize_folder(root.child(i)))
+            
+        with open(filepath, 'w') as f:
+            json.dump(data, f, indent=4)
+        self.unsaved_changes = False
+
+    def load_workspace(self, filepath="workspace.json"):
+        if not os.path.exists(filepath): return
+        with open(filepath, 'r') as f:
+            try:
+                data = json.load(f)
+            except Exception:
+                return
+        
+        self.tree_folders.clear()
+        self.list_tasks.clear()
+        self.text_editor.clear()
+        
+        for f_data in data.get("folders", []):
+            self.deserialize_folder(f_data, self.tree_folders.invisibleRootItem())
+            
+        self.unsaved_changes = False
+
+    def deserialize_folder(self, data, parent_item):
+        item = QTreeWidgetItem(parent_item)
+        item.setText(0, data.get("name", "Untitled"))
+        color_hex = data.get("color")
+        if color_hex:
+            color = QColor(color_hex)
+            item.setData(0, Qt.ItemDataRole.UserRole, color)
+            item.setForeground(0, color)
+        
+        item.setData(0, Qt.ItemDataRole.UserRole + 1, data.get("tasks", []))
+        
+        for sub_data in data.get("subfolders", []):
+            self.deserialize_folder(sub_data, item)
 
     def save_current_folder_tasks(self, folder):
         if not folder: return
         tasks_data = []
         for i in range(self.list_tasks.count()):
             item = self.list_tasks.item(i)
+            c = item.foreground().color()
             tasks_data.append({
                 "name": item.text(),
                 "note": item.data(Qt.ItemDataRole.UserRole),
-                "color": item.foreground().color()
+                "color": c.name() if c.isValid() else None
             })
         folder.setData(0, Qt.ItemDataRole.UserRole + 1, tasks_data)
+        self.mark_unsaved()
 
     def add_folder(self):
         name, ok = QInputDialog.getText(self, "New Root Folder", "Folder Name:")
@@ -259,6 +349,7 @@ class VibeCodeThisWindow(QMainWindow):
             item.setText(0, name)
             if color.isValid():
                 self.apply_color_to_folder(item, color)
+            self.mark_unsaved()
 
     def apply_color_to_folder(self, item, color):
         item.setData(0, Qt.ItemDataRole.UserRole, color)
@@ -268,6 +359,7 @@ class VibeCodeThisWindow(QMainWindow):
         
         if item == self.tree_folders.currentItem():
             self.update_cascading_color(color)
+        self.mark_unsaved()
 
     def update_cascading_color(self, color):
         color_name = color.name() if color and color.isValid() else "transparent"
@@ -297,19 +389,24 @@ class VibeCodeThisWindow(QMainWindow):
                 if color and color.isValid():
                     self.apply_color_to_folder(new_item, color)
                 item.setExpanded(True)
+                self.mark_unsaved()
         elif action == a_rename:
             name, ok = QInputDialog.getText(self, "Rename", "New Name:", text=item.text(0))
-            if ok and name: item.setText(0, name)
+            if ok and name: 
+                item.setText(0, name)
+                self.mark_unsaved()
         elif action == a_dup:
             parent = item.parent() or self.tree_folders.invisibleRootItem()
             new_item = QTreeWidgetItem(parent)
             new_item.setText(0, item.text(0) + " (copy)")
             color = item.data(0, Qt.ItemDataRole.UserRole)
             if color: self.apply_color_to_folder(new_item, color)
+            self.mark_unsaved()
         elif action == a_del:
             if QMessageBox.question(self, "Confirm", "Delete folder?") == QMessageBox.StandardButton.Yes:
                 parent = item.parent() or self.tree_folders.invisibleRootItem()
                 parent.removeChild(item)
+                self.mark_unsaved()
         elif action == a_color:
             color = QColorDialog.getColor()
             if color.isValid():
@@ -331,8 +428,8 @@ class VibeCodeThisWindow(QMainWindow):
             for tdata in tasks_data:
                 item = QListWidgetItem(tdata["name"])
                 item.setData(Qt.ItemDataRole.UserRole, tdata["note"])
-                if tdata.get("color") and tdata["color"].isValid():
-                    item.setForeground(tdata["color"])
+                if tdata.get("color"):
+                    item.setForeground(QColor(tdata["color"]))
                 self.list_tasks.addItem(item)
                 
             self.update_cascading_color(color)
@@ -369,23 +466,29 @@ class VibeCodeThisWindow(QMainWindow):
 
     def change_font(self, font):
         self.text_editor.setCurrentFont(font)
+        self.mark_unsaved()
 
     def toggle_bold(self):
         self.text_editor.setFontWeight(700 if self.btn_bold.isChecked() else 400)
+        self.mark_unsaved()
 
     def toggle_underline(self):
         self.text_editor.setFontUnderline(self.btn_underline.isChecked())
+        self.mark_unsaved()
 
     def align_center(self):
         self.text_editor.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.mark_unsaved()
 
     def insert_bullet(self):
         cursor = self.text_editor.textCursor()
         cursor.createList(QTextListFormat.Style.ListDisc)
+        self.mark_unsaved()
 
     def insert_number(self):
         cursor = self.text_editor.textCursor()
         cursor.createList(QTextListFormat.Style.ListDecimal)
+        self.mark_unsaved()
 
     def toggle_edit_mode(self):
         new_state = not self.text_editor.isReadOnly()
@@ -399,8 +502,20 @@ class VibeCodeThisWindow(QMainWindow):
             self.save_current_folder_tasks(self.tree_folders.currentItem())
 
     def custom_close(self):
-        # TODO: Save state to default JSON
-        self.close()
+        if self.unsaved_changes:
+            reply = QMessageBox.question(self, "Unsaved Changes", 
+                                         "You have unsaved changes. Save before closing?",
+                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel)
+            if reply == QMessageBox.StandardButton.Yes:
+                self.save_workspace()
+                self.close()
+            elif reply == QMessageBox.StandardButton.No:
+                self.close()
+            else:
+                pass # Cancel
+        else:
+            self.save_workspace() # silent save to default just in case
+            self.close()
 
 def main():
     app = QApplication(sys.argv)

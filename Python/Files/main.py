@@ -63,38 +63,52 @@ class CustomTextEditor(QTextEdit):
             self.setTextCursor(cursor)
             self.setCurrentCharFormat(self.default_format)
 
+    def keyPressEvent(self, event):
+        # Reset typing format if it has inherited the COPY_BG, ensuring new characters are default format
+        if event.text():
+            fmt = self.currentCharFormat()
+            brush = fmt.background()
+            if brush.style() != Qt.BrushStyle.NoBrush:
+                bg_color = brush.color()
+                if bg_color.isValid() and bg_color.name().upper() == self.COPY_BG:
+                    self.setCurrentCharFormat(self.default_format)
+        super().keyPressEvent(event)
+
     def mousePressEvent(self, event):
         super().mousePressEvent(event)
         if event.button() == Qt.MouseButton.LeftButton:
             cursor = self.cursorForPosition(event.pos())
             fmt = cursor.charFormat()
-            bg_color = fmt.background().color()
+            brush = fmt.background()
             
-            if bg_color.isValid() and bg_color.name().upper() == self.COPY_BG:
-                left_cursor = QTextCursor(cursor)
-                while left_cursor.position() > 0:
-                    left_cursor.movePosition(QTextCursor.MoveOperation.Left)
-                    left_bg = left_cursor.charFormat().background().color()
-                    if not left_bg.isValid() or left_bg.name().upper() != self.COPY_BG:
-                        left_cursor.movePosition(QTextCursor.MoveOperation.Right)
-                        break
-                        
-                right_cursor = QTextCursor(cursor)
-                doc_length = self.document().characterCount()
-                while right_cursor.position() < doc_length - 1:
-                    right_cursor.movePosition(QTextCursor.MoveOperation.Right)
-                    right_bg = right_cursor.charFormat().background().color()
-                    if not right_bg.isValid() or right_bg.name().upper() != self.COPY_BG:
-                        break
-                        
-                selection_cursor = QTextCursor(left_cursor)
-                selection_cursor.setPosition(right_cursor.position(), QTextCursor.MoveMode.KeepAnchor)
-                selected_text = selection_cursor.selectedText()
-                if selected_text:
-                    QGuiApplication.clipboard().setText(selected_text)
-                    if not hasattr(self, 'toast'):
-                        self.toast = ToastWidget()
-                    self.toast.show_toast(event.globalPosition().toPoint())
+            # Check brush style to ensure it's not a NoBrush background (which default text has)
+            if brush.style() != Qt.BrushStyle.NoBrush:
+                bg_color = brush.color()
+                if bg_color.isValid() and bg_color.name().upper() == self.COPY_BG:
+                    left_cursor = QTextCursor(cursor)
+                    while left_cursor.position() > 0:
+                        left_cursor.movePosition(QTextCursor.MoveOperation.Left)
+                        left_bg = left_cursor.charFormat().background()
+                        if left_bg.style() == Qt.BrushStyle.NoBrush or left_bg.color().name().upper() != self.COPY_BG:
+                            left_cursor.movePosition(QTextCursor.MoveOperation.Right)
+                            break
+                            
+                    right_cursor = QTextCursor(cursor)
+                    doc_length = self.document().characterCount()
+                    while right_cursor.position() < doc_length - 1:
+                        right_cursor.movePosition(QTextCursor.MoveOperation.Right)
+                        right_bg = right_cursor.charFormat().background()
+                        if right_bg.style() == Qt.BrushStyle.NoBrush or right_bg.color().name().upper() != self.COPY_BG:
+                            break
+                            
+                    selection_cursor = QTextCursor(left_cursor)
+                    selection_cursor.setPosition(right_cursor.position(), QTextCursor.MoveMode.KeepAnchor)
+                    selected_text = selection_cursor.selectedText()
+                    if selected_text:
+                        QGuiApplication.clipboard().setText(selected_text)
+                        if not hasattr(self, 'toast'):
+                            self.toast = ToastWidget()
+                        self.toast.show_toast(event.globalPosition().toPoint())
 
     def paintEvent(self, event):
         # Draw the standard text and background highlight first

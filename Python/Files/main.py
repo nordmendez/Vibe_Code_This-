@@ -141,6 +141,7 @@ class VibeCodeThisWindow(QMainWindow):
         self.list_tasks.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self.btn_add_task.clicked.connect(self.add_task)
         self.list_tasks.currentItemChanged.connect(self.on_task_selected)
+        self.list_tasks.model().rowsMoved.connect(lambda: self.save_current_folder_tasks(self.tree_folders.currentItem()))
         
         self.col2_layout.addLayout(self.col2_header)
         self.col2_layout.addWidget(self.list_tasks)
@@ -180,11 +181,23 @@ class VibeCodeThisWindow(QMainWindow):
         self.trans_win = TranslucentWindow(self.text_editor.toHtml())
         self.trans_win.show()
 
+    def save_current_folder_tasks(self, folder):
+        if not folder: return
+        tasks_data = []
+        for i in range(self.list_tasks.count()):
+            item = self.list_tasks.item(i)
+            tasks_data.append({
+                "name": item.text(),
+                "note": item.data(Qt.ItemDataRole.UserRole),
+                "color": item.foreground().color()
+            })
+        folder.setData(0, Qt.ItemDataRole.UserRole + 1, tasks_data)
+
     def add_folder(self):
-        name, ok = QInputDialog.getText(self, "New Folder", "Folder Name:")
+        name, ok = QInputDialog.getText(self, "New Root Folder", "Folder Name:")
         if ok and name:
             color = QColorDialog.getColor(title="Optional Folder Color")
-            parent = self.tree_folders.currentItem() or self.tree_folders.invisibleRootItem()
+            parent = self.tree_folders.invisibleRootItem()
             item = QTreeWidgetItem(parent)
             item.setText(0, name)
             if color.isValid():
@@ -211,13 +224,23 @@ class VibeCodeThisWindow(QMainWindow):
         item = self.tree_folders.itemAt(pos)
         if not item: return
         menu = QMenu()
+        a_add_sub = menu.addAction("Add New Folder")
         a_rename = menu.addAction("Rename")
         a_dup = menu.addAction("Duplicate")
         a_del = menu.addAction("Delete")
         a_color = menu.addAction("Change Color")
         
         action = menu.exec(self.tree_folders.mapToGlobal(pos))
-        if action == a_rename:
+        if action == a_add_sub:
+            name, ok = QInputDialog.getText(self, "New Subfolder", "Subfolder Name:")
+            if ok and name:
+                new_item = QTreeWidgetItem(item)
+                new_item.setText(0, name)
+                color = item.data(0, Qt.ItemDataRole.UserRole)
+                if color and color.isValid():
+                    self.apply_color_to_folder(new_item, color)
+                item.setExpanded(True)
+        elif action == a_rename:
             name, ok = QInputDialog.getText(self, "Rename", "New Name:", text=item.text(0))
             if ok and name: item.setText(0, name)
         elif action == a_dup:
@@ -236,9 +259,25 @@ class VibeCodeThisWindow(QMainWindow):
                 self.apply_color_to_folder(item, color)
 
     def on_folder_selected(self, current, previous):
+        if previous:
+            self.save_current_folder_tasks(previous)
+            
+        self.list_tasks.clear()
+        self.text_editor.clear()
+        self.lbl_selected_folder.setText("Select a folder")
+        
         if current:
             self.lbl_selected_folder.setText(current.text(0))
             color = current.data(0, Qt.ItemDataRole.UserRole)
+            
+            tasks_data = current.data(0, Qt.ItemDataRole.UserRole + 1) or []
+            for tdata in tasks_data:
+                item = QListWidgetItem(tdata["name"])
+                item.setData(Qt.ItemDataRole.UserRole, tdata["note"])
+                if tdata.get("color") and tdata["color"].isValid():
+                    item.setForeground(tdata["color"])
+                self.list_tasks.addItem(item)
+                
             self.update_cascading_color(color)
 
     def add_task(self):
@@ -252,6 +291,7 @@ class VibeCodeThisWindow(QMainWindow):
             color = folder.data(0, Qt.ItemDataRole.UserRole)
             if color and color.isValid(): item.setForeground(color)
             self.list_tasks.addItem(item)
+            self.save_current_folder_tasks(folder)
 
     def on_task_selected(self, current, previous):
         if current:
@@ -274,6 +314,7 @@ class VibeCodeThisWindow(QMainWindow):
         item = self.list_tasks.currentItem()
         if item:
             item.setData(Qt.ItemDataRole.UserRole, self.text_editor.toHtml())
+            self.save_current_folder_tasks(self.tree_folders.currentItem())
 
     def custom_close(self):
         # TODO: Save state to default JSON

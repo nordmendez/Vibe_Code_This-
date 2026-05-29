@@ -291,6 +291,7 @@ class VibeCodeThisWindow(QMainWindow):
         
         self.list_tasks = QListWidget()
         self.list_tasks.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+        self.list_tasks.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.list_tasks.setStyleSheet("""
             QListWidget::item {
                 border-bottom: 1px solid #E5E5E5;
@@ -304,6 +305,7 @@ class VibeCodeThisWindow(QMainWindow):
         """)
         self.btn_add_task.clicked.connect(self.add_task)
         self.list_tasks.currentItemChanged.connect(self.on_task_selected)
+        self.list_tasks.customContextMenuRequested.connect(self.show_task_context_menu)
         self.list_tasks.model().rowsMoved.connect(lambda: self.save_current_folder_tasks(self.tree_folders.currentItem()))
         
         self.col2_layout.addLayout(self.col2_header)
@@ -598,6 +600,37 @@ class VibeCodeThisWindow(QMainWindow):
             color = QColorDialog.getColor()
             if color.isValid():
                 self.apply_color_to_folder(item, color)
+
+    def show_task_context_menu(self, pos):
+        item = self.list_tasks.itemAt(pos)
+        if not item: return
+        menu = QMenu()
+        a_rename = menu.addAction("Rename")
+        a_dup = menu.addAction("Duplicate")
+        a_del = menu.addAction("Delete")
+        
+        action = menu.exec(self.list_tasks.mapToGlobal(pos))
+        folder = self.tree_folders.currentItem()
+        if not folder: return
+        
+        if action == a_rename:
+            name, ok = QInputDialog.getText(self, "Rename Task", "Task Name:", text=item.text())
+            if ok and name:
+                item.setText(name)
+                self.save_current_folder_tasks(folder)
+        elif action == a_dup:
+            new_item = QListWidgetItem(item.text() + " (copy)")
+            new_item.setData(Qt.ItemDataRole.UserRole, item.data(Qt.ItemDataRole.UserRole))
+            c = item.foreground().color()
+            if c.isValid():
+                new_item.setForeground(c)
+            self.list_tasks.addItem(new_item)
+            self.list_tasks.setCurrentItem(new_item)
+            self.save_current_folder_tasks(folder)
+        elif action == a_del:
+            if QMessageBox.question(self, "Confirm", "Delete task?") == QMessageBox.StandardButton.Yes:
+                self.list_tasks.takeItem(self.list_tasks.row(item))
+                self.save_current_folder_tasks(folder)
 
     def on_folder_selected(self, current, previous):
         if previous:

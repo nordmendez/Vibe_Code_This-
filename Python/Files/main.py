@@ -386,6 +386,12 @@ class VibeCodeThisWindow(QMainWindow):
         return folder_data
 
     def save_workspace(self, filepath="workspace.json"):
+        # Explicitly save the current active text editor note to the current task item
+        # so any formatting changes (which don't trigger textChanged) are perfectly preserved!
+        item = self.list_tasks.currentItem()
+        if item:
+            item.setData(Qt.ItemDataRole.UserRole, self.text_editor.toHtml())
+            
         if self.tree_folders.currentItem():
             self.save_current_folder_tasks(self.tree_folders.currentItem())
             
@@ -517,6 +523,10 @@ class VibeCodeThisWindow(QMainWindow):
 
     def on_folder_selected(self, current, previous):
         if previous:
+            # Explicitly save the current active text editor note to the current task item first
+            item = self.list_tasks.currentItem()
+            if item:
+                item.setData(Qt.ItemDataRole.UserRole, self.text_editor.toHtml())
             self.save_current_folder_tasks(previous)
             
         self.list_tasks.clear()
@@ -551,6 +561,11 @@ class VibeCodeThisWindow(QMainWindow):
             self.save_current_folder_tasks(folder)
 
     def on_task_selected(self, current, previous):
+        if previous:
+            # Explicitly save the previous task's note before loading the new one
+            previous.setData(Qt.ItemDataRole.UserRole, self.text_editor.toHtml())
+            self.save_current_folder_tasks(self.tree_folders.currentItem())
+            
         if current:
             note_content = current.data(Qt.ItemDataRole.UserRole) or ""
             self.text_editor.blockSignals(True)

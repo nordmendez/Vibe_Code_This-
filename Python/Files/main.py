@@ -529,8 +529,13 @@ class VibeCodeThisWindow(QMainWindow):
                 item.setData(Qt.ItemDataRole.UserRole, self.text_editor.toHtml())
             self.save_current_folder_tasks(previous)
             
+        self.list_tasks.blockSignals(True)
         self.list_tasks.clear()
+        self.list_tasks.blockSignals(False)
+        
         self.text_editor.clear()
+        self.text_editor.setReadOnly(True)
+        self.formatting_widget.hide()
         self.lbl_selected_folder.setText("Select a folder")
         
         if current:
@@ -538,12 +543,14 @@ class VibeCodeThisWindow(QMainWindow):
             color = current.data(0, Qt.ItemDataRole.UserRole)
             
             tasks_data = current.data(0, Qt.ItemDataRole.UserRole + 1) or []
+            self.list_tasks.blockSignals(True)
             for tdata in tasks_data:
                 item = QListWidgetItem(tdata["name"])
                 item.setData(Qt.ItemDataRole.UserRole, tdata["note"])
                 if tdata.get("color"):
                     item.setForeground(QColor(tdata["color"]))
                 self.list_tasks.addItem(item)
+            self.list_tasks.blockSignals(False)
                 
             self.update_cascading_color(color)
 

@@ -9,7 +9,7 @@ You MUST adhere to these rules throughout the entire build process:
 ### Section 2: Application Specifications
 **Project Structure:**
 - Bootstrapper: `Vibe_Code-This/Click_Here_To_Start.command` (Creates a venv, installs requirements, runs app).
-- Source Code: `Vibe_Code-This/Python/Files/main.py`
+- Source Code: `Vibe_Code-This/src/main.py`
 - Data Storage: JSON format saving the full workspace state.
 
 **Window Layout Requirements:**

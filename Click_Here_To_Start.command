@@ -20,4 +20,4 @@ pip install PyQt6
 
 # Run the application
 echo "Starting Vibe_Code-This..."
-python Python/Files/main.py
+python src/main.py

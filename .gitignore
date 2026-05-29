@@ -1,0 +1,17 @@
+# Virtual Environment
+venv/
+
+# PyCache / Compiled Python
+__pycache__/
+*.pyc
+
+# PyInstaller / Build Artifacts
+build/
+dist/
+*.spec
+
+# Local workspace state data
+workspace.json
+
+# Local macOS DMG build output
+mac/

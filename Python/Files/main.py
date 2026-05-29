@@ -315,13 +315,9 @@ class VibeCodeThisWindow(QMainWindow):
         self.col3_layout = QVBoxLayout(self.col3_widget)
         self.col3_header = QHBoxLayout()
         self.btn_toggle_edit = QPushButton("✏️")
-        self.btn_attach_file = QPushButton("Attach File")
-        self.btn_open_file = QPushButton("Open File")
         self.btn_trans = QPushButton("Trans")
         
         self.col3_header.addWidget(self.btn_toggle_edit)
-        self.col3_header.addWidget(self.btn_attach_file)
-        self.col3_header.addWidget(self.btn_open_file)
         self.col3_header.addStretch()
         self.col3_header.addWidget(self.btn_trans)
         

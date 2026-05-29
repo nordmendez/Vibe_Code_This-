@@ -227,6 +227,17 @@ class VibeCodeThisWindow(QMainWindow):
         self.btn_save_as = QPushButton("Save As")
         self.lbl_selected_folder = QLabel("Select a folder")
         self.lbl_selected_folder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_selected_folder.setStyleSheet("""
+            QLabel {
+                font-size: 16px;
+                font-weight: bold;
+                border: 3px solid #CCCCCC;
+                border-radius: 6px;
+                padding: 6px 16px;
+                background-color: #FAFAFA;
+                color: #777777;
+            }
+        """)
         self.btn_close = QPushButton("Close")
         
         self.btn_import.clicked.connect(self.btn_import_clicked)
@@ -280,6 +291,17 @@ class VibeCodeThisWindow(QMainWindow):
         
         self.list_tasks = QListWidget()
         self.list_tasks.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+        self.list_tasks.setStyleSheet("""
+            QListWidget::item {
+                border-bottom: 1px solid #E5E5E5;
+                padding: 8px 6px;
+            }
+            QListWidget::item:selected {
+                background-color: #F0F0F0;
+                border-radius: 4px;
+                color: black;
+            }
+        """)
         self.btn_add_task.clicked.connect(self.add_task)
         self.list_tasks.currentItemChanged.connect(self.on_task_selected)
         self.list_tasks.model().rowsMoved.connect(lambda: self.save_current_folder_tasks(self.tree_folders.currentItem()))
@@ -521,6 +543,20 @@ class VibeCodeThisWindow(QMainWindow):
         
         border_style = f"2px solid {color_name}" if color_name != "transparent" else "none"
         self.col3_widget.setStyleSheet(f"#Col3Widget {{ border: {border_style}; }}")
+        
+        # Update self.lbl_selected_folder style dynamically to match the color!
+        border_color = color.name() if color and color.isValid() else "#CCCCCC"
+        self.lbl_selected_folder.setStyleSheet(f"""
+            QLabel {{
+                font-size: 16px;
+                font-weight: bold;
+                border: 3px solid {border_color};
+                border-radius: 6px;
+                padding: 6px 16px;
+                background-color: #FAFAFA;
+                color: #333333;
+            }}
+        """)
 
     def show_folder_context_menu(self, pos):
         item = self.tree_folders.itemAt(pos)
@@ -583,6 +619,17 @@ class VibeCodeThisWindow(QMainWindow):
         self.text_editor.setReadOnly(True)
         self.formatting_widget.hide()
         self.lbl_selected_folder.setText("Select a folder")
+        self.lbl_selected_folder.setStyleSheet("""
+            QLabel {
+                font-size: 16px;
+                font-weight: bold;
+                border: 3px solid #CCCCCC;
+                border-radius: 6px;
+                padding: 6px 16px;
+                background-color: #FAFAFA;
+                color: #777777;
+            }
+        """)
         
         if current:
             self.lbl_selected_folder.setText(current.text(0))

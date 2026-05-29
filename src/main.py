@@ -12,6 +12,17 @@ from PyQt6.QtGui import (QTextCharFormat, QColor, QCursor, QGuiApplication,
                          QTextTableFormat, QBrush, QTextFrameFormat, QPainter,
                          QIcon, QPixmap, QPainterPath, QLinearGradient)
 
+def get_workspace_path(filename="workspace.json"):
+    if getattr(sys, 'frozen', False):
+        exe_dir = os.path.dirname(sys.executable)
+        if ".app/Contents/MacOS" in exe_dir:
+            base_dir = os.path.abspath(os.path.join(exe_dir, "../../../.."))
+        else:
+            base_dir = exe_dir
+    else:
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_dir, filename)
+
 class ToastWidget(QLabel):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -214,6 +225,7 @@ class VibeCodeThisWindow(QMainWindow):
         self.setWindowTitle("Vibe_Code-This")
         self.setGeometry(100, 100, 1200, 700)
         self.unsaved_changes = False
+        self.workspace_path = get_workspace_path("workspace.json")
         self.init_ui()
         self.load_workspace()
 
@@ -445,7 +457,10 @@ class VibeCodeThisWindow(QMainWindow):
             folder_data["subfolders"].append(self.serialize_folder(item.child(i)))
         return folder_data
 
-    def save_workspace(self, filepath="workspace.json"):
+    def save_workspace(self, filepath=None):
+        if filepath is None:
+            filepath = self.workspace_path
+            
         # Explicitly save the current active text editor note to the current task item
         # so any formatting changes (which don't trigger textChanged) are perfectly preserved!
         item = self.list_tasks.currentItem()
@@ -460,17 +475,38 @@ class VibeCodeThisWindow(QMainWindow):
         for i in range(root.childCount()):
             data["folders"].append(self.serialize_folder(root.child(i)))
             
-        with open(filepath, 'w') as f:
-            json.dump(data, f, indent=4)
-        self.unsaved_changes = False
-
-    def load_workspace(self, filepath="workspace.json"):
-        if not os.path.exists(filepath): return
-        with open(filepath, 'r') as f:
+        try:
+            with open(filepath, 'w') as f:
+                json.dump(data, f, indent=4)
+            self.unsaved_changes = False
+        except Exception as e:
+            # Fallback to home directory if write fails (e.g. read-only folder)
+            fallback_path = os.path.join(os.path.expanduser("~"), "vibe_workspace.json")
             try:
-                data = json.load(f)
+                with open(fallback_path, 'w') as f:
+                    json.dump(data, f, indent=4)
+                self.unsaved_changes = False
+                print(f"Warning: Could not save to {filepath} due to {e}. Saved fallback to {fallback_path}")
             except Exception:
+                pass
+
+    def load_workspace(self, filepath=None):
+        if filepath is None:
+            filepath = self.workspace_path
+            
+        if not os.path.exists(filepath):
+            # Try to load from home directory fallback if default doesn't exist
+            fallback_path = os.path.join(os.path.expanduser("~"), "vibe_workspace.json")
+            if os.path.exists(fallback_path):
+                filepath = fallback_path
+            else:
                 return
+                
+        try:
+            with open(filepath, 'r') as f:
+                data = json.load(f)
+        except Exception:
+            return
         
         self.tree_folders.clear()
         self.list_tasks.clear()
@@ -753,6 +789,13 @@ class VibeCodeThisWindow(QMainWindow):
             self.save_current_folder_tasks(self.tree_folders.currentItem())
 
     def closeEvent(self, event):
+        # Safely close translucent helper window if open to avoid thread crashes on exit
+        if hasattr(self, 'trans_win') and self.trans_win:
+            try:
+                self.trans_win.close()
+            except Exception:
+                pass
+                
         if self.unsaved_changes:
             reply = QMessageBox.question(self, "Unsaved Changes", 
                                          "You have unsaved changes. Save before closing?",

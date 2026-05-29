@@ -16,3 +16,6 @@ workspace.json
 
 # Local macOS DMG build output
 mac/
+
+# Scratch directory
+scratch/

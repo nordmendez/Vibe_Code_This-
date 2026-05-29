@@ -2,15 +2,17 @@ import sys
 import json
 import os
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                             QHBoxLayout, QPushButton, QLabel, QTreeWidget, 
-                             QListWidget, QTextEdit, QLineEdit, QSplitter,
+                             QHBoxLayout, QSplitter, QTreeWidget, QListWidget,
                              QColorDialog, QInputDialog, QMessageBox, QMenu,
-                             QTreeWidgetItem, QListWidgetItem, QFontComboBox, QFileDialog)
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QRectF, QPointF
+                             QTreeWidgetItem, QListWidgetItem, QFontComboBox, QFileDialog, QGridLayout)
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QRectF, QPointF, QSize
 from PyQt6.QtGui import (QTextCharFormat, QColor, QCursor, QGuiApplication, 
                          QTextCursor, QFont, QTextListFormat, QPen, 
                          QTextTableFormat, QBrush, QTextFrameFormat, QPainter,
                          QIcon, QPixmap, QPainterPath, QLinearGradient)
+from qfluentwidgets import (MessageBoxBase, PushButton, SubtitleLabel, BodyLabel, CaptionLabel,
+                            TreeWidget, ListWidget, TextEdit, LineEdit, setTheme, Theme, setThemeColor, SearchLineEdit, TransparentPushButton)
+from qframelesswindow import FramelessWindow
 
 def get_workspace_path(filename="workspace.json"):
     if getattr(sys, 'frozen', False):
@@ -23,7 +25,66 @@ def get_workspace_path(filename="workspace.json"):
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_dir, filename)
 
-class ToastWidget(QLabel):
+
+class FolderColorDialog(MessageBoxBase):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.titleLabel = SubtitleLabel('Choose Folder Color')
+        self.viewLayout.addWidget(self.titleLabel)
+
+        self.color_grid = QGridLayout()
+        self.viewLayout.addLayout(self.color_grid)
+
+        # Monday.com style palette
+        self.colors = [
+            "#FF158A", "#FF5AC4", "#BB3354", "#7F5347", "#FF642E", 
+            "#FFCB00", "#9CD326", "#037F4C", "#00C875", "#9AADBD", 
+            "#0086C0", "#579BFC", "#66CCFF", "#A25DDC", "#784BD1", 
+            "#808080", "#333333", "#E2445C", "#FDAB3D", "#000000"
+        ]
+        
+        self.selected_color = None
+        
+        row = 0
+        col = 0
+        for color in self.colors:
+            btn = TransparentPushButton()
+            btn.setFixedSize(32, 32)
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {color};
+                    border-radius: 16px;
+                }}
+                QPushButton:hover {{
+                    border: 2px solid white;
+                }}
+            """)
+            btn.clicked.connect(lambda checked, c=color: self.set_color(c))
+            self.color_grid.addWidget(btn, row, col)
+            col += 1
+            if col > 4:
+                col = 0
+                row += 1
+
+        self.hex_input = LineEdit()
+        self.hex_input.setPlaceholderText("Or enter Hex (#FFFFFF)")
+        self.hex_input.textChanged.connect(self.on_hex_changed)
+        self.viewLayout.addWidget(self.hex_input)
+        
+        self.widget.setMinimumWidth(250)
+
+    def set_color(self, color):
+        self.selected_color = QColor(color)
+        self.accept()
+
+    def on_hex_changed(self, text):
+        if len(text) == 7 and text.startswith('#'):
+            self.selected_color = QColor(text)
+            
+    def getColor(self):
+        return self.selected_color
+
+class ToastWidget(BodyLabel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.ToolTip | Qt.WindowType.WindowStaysOnTopHint)
@@ -53,7 +114,7 @@ class ToastWidget(QLabel):
         painter.end()
         super().paintEvent(event)
 
-class CustomTextEditor(QTextEdit):
+class CustomTextEditor(TextEdit):
     # Class level constant for the lightened copy box background
     COPY_BG = "#FAFAFA"
 
@@ -195,7 +256,7 @@ class TranslucentWindow(QWidget):
         # Header with close button
         header = QHBoxLayout()
         header.addStretch()
-        btn_close = QPushButton("×")
+        btn_close = PushButton("×")
         btn_close.setFixedSize(20, 20)
         btn_close.clicked.connect(self.close)
         header.addWidget(btn_close)
@@ -219,7 +280,7 @@ class TranslucentWindow(QWidget):
                 event.accept()
 
 
-class VibeCodeThisWindow(QMainWindow):
+class VibeCodeThisWindow(FramelessWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Vibe_Code-This")
@@ -230,14 +291,32 @@ class VibeCodeThisWindow(QMainWindow):
         self.load_workspace()
 
     def init_ui(self):
-        self.central_widget = QWidget()
-        self.setCentralWidget(self.central_widget)
-        self.main_layout = QVBoxLayout(self.central_widget)
+
+        # Set macOS style fluent theme
+        setTheme(Theme.LIGHT)
+        setThemeColor('#00E5FF') # Neon cyan from icon
+        self.setStyleSheet("""
+            VibeCodeThisWindow {
+                background-color: #F3F4F6; /* Slightly darker light mode bg to make cards pop */
+            }
+            #Col1Widget, #Col2Widget, #Col3Widget {
+                background-color: #FFFFFF;
+                border: 1px solid #E5E7EB;
+                border-radius: 12px;
+            }
+            #Col1Widget, #Col2Widget, #Col3Widget {
+                margin: 4px; /* Add some spacing around the cards inside the splitter */
+            }
+        """)
+        # FramelessWindow is a QWidget, so we use its layout directly
+        # Also leave margin at the top for the title bar/macOS traffic lights
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(10, 40, 10, 10)
         
         self.top_row_layout = QHBoxLayout()
-        self.btn_import = QPushButton("Import")
-        self.btn_save_as = QPushButton("Save As")
-        self.lbl_selected_folder = QLabel("Select a folder")
+        self.btn_import = PushButton("Import")
+        self.btn_save_as = PushButton("Save As")
+        self.lbl_selected_folder = SubtitleLabel("Select a folder")
         self.lbl_selected_folder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_selected_folder.setStyleSheet("""
             QLabel {
@@ -250,7 +329,7 @@ class VibeCodeThisWindow(QMainWindow):
                 color: #777777;
             }
         """)
-        self.btn_close = QPushButton("Close")
+        self.btn_close = PushButton("Close")
         
         self.btn_import.clicked.connect(self.btn_import_clicked)
         self.btn_save_as.clicked.connect(self.btn_save_as_clicked)
@@ -267,15 +346,16 @@ class VibeCodeThisWindow(QMainWindow):
         
         # Column 1
         self.col1_widget = QWidget()
+        self.col1_widget.setObjectName("Col1Widget")
         self.col1_layout = QVBoxLayout(self.col1_widget)
         self.col1_header = QHBoxLayout()
-        self.lbl_col1 = QLabel("Folders")
-        self.btn_add_folder = QPushButton("+")
+        self.lbl_col1 = SubtitleLabel("Folders")
+        self.btn_add_folder = TransparentPushButton("+")
         self.col1_header.addWidget(self.lbl_col1)
         self.col1_header.addStretch()
         self.col1_header.addWidget(self.btn_add_folder)
         
-        self.tree_folders = QTreeWidget()
+        self.tree_folders = TreeWidget()
         self.tree_folders.setHeaderHidden(True)
         self.tree_folders.setDragDropMode(QTreeWidget.DragDropMode.InternalMove)
         self.tree_folders.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -284,7 +364,7 @@ class VibeCodeThisWindow(QMainWindow):
         self.tree_folders.model().rowsMoved.connect(self.mark_unsaved)
         self.btn_add_folder.clicked.connect(self.add_folder)
         
-        self.search_box = QLineEdit()
+        self.search_box = SearchLineEdit()
         self.search_box.setPlaceholderText("Search folders...")
         
         self.col1_layout.addLayout(self.col1_header)
@@ -293,15 +373,16 @@ class VibeCodeThisWindow(QMainWindow):
         
         # Column 2
         self.col2_widget = QWidget()
+        self.col2_widget.setObjectName("Col2Widget")
         self.col2_layout = QVBoxLayout(self.col2_widget)
         self.col2_header = QHBoxLayout()
-        self.lbl_col2 = QLabel("Tasks")
-        self.btn_add_task = QPushButton("+")
+        self.lbl_col2 = SubtitleLabel("Tasks")
+        self.btn_add_task = TransparentPushButton("+")
         self.col2_header.addWidget(self.lbl_col2)
         self.col2_header.addStretch()
         self.col2_header.addWidget(self.btn_add_task)
         
-        self.list_tasks = QListWidget()
+        self.list_tasks = ListWidget()
         self.list_tasks.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self.list_tasks.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.list_tasks.setStyleSheet("""
@@ -328,8 +409,8 @@ class VibeCodeThisWindow(QMainWindow):
         self.col3_widget.setObjectName("Col3Widget")
         self.col3_layout = QVBoxLayout(self.col3_widget)
         self.col3_header = QHBoxLayout()
-        self.btn_toggle_edit = QPushButton("✏️")
-        self.btn_trans = QPushButton("Trans")
+        self.btn_toggle_edit = PushButton("✏️")
+        self.btn_trans = PushButton("Trans")
         
         self.col3_header.addWidget(self.btn_toggle_edit)
         self.col3_header.addStretch()
@@ -344,29 +425,29 @@ class VibeCodeThisWindow(QMainWindow):
         self.font_combo.currentFontChanged.connect(self.change_font)
         self.format_layout.addWidget(self.font_combo)
         
-        self.btn_bold = QPushButton("B")
+        self.btn_bold = PushButton("B")
         self.btn_bold.setCheckable(True)
         self.btn_bold.clicked.connect(self.toggle_bold)
         self.format_layout.addWidget(self.btn_bold)
         
-        self.btn_underline = QPushButton("U")
+        self.btn_underline = PushButton("U")
         self.btn_underline.setCheckable(True)
         self.btn_underline.clicked.connect(self.toggle_underline)
         self.format_layout.addWidget(self.btn_underline)
         
-        self.btn_center = QPushButton("Center")
+        self.btn_center = PushButton("Center")
         self.btn_center.clicked.connect(self.align_center)
         self.format_layout.addWidget(self.btn_center)
         
-        self.btn_bullet = QPushButton("• List")
+        self.btn_bullet = PushButton("• List")
         self.btn_bullet.clicked.connect(self.insert_bullet)
         self.format_layout.addWidget(self.btn_bullet)
         
-        self.btn_number = QPushButton("1. List")
+        self.btn_number = PushButton("1. List")
         self.btn_number.clicked.connect(self.insert_number)
         self.format_layout.addWidget(self.btn_number)
         
-        self.btn_copy_block = QPushButton("🔲 Copy")
+        self.btn_copy_block = PushButton("🔲 Copy")
         self.btn_copy_block.clicked.connect(self.format_as_copy_block)
         self.format_layout.addWidget(self.btn_copy_block)
         
@@ -549,11 +630,14 @@ class VibeCodeThisWindow(QMainWindow):
     def add_folder(self):
         name, ok = QInputDialog.getText(self, "New Root Folder", "Folder Name:")
         if ok and name:
-            color = QColorDialog.getColor(title="Optional Folder Color")
+            dialog = FolderColorDialog(self)
+            color = None
+            if dialog.exec():
+                color = dialog.getColor()
             parent = self.tree_folders.invisibleRootItem()
             item = QTreeWidgetItem(parent)
             item.setText(0, name)
-            if color.isValid():
+            if color and color.isValid():
                 self.apply_color_to_folder(item, color)
             else:
                 self.apply_color_to_folder(item, QColor("#007AFF"))
@@ -575,9 +659,12 @@ class VibeCodeThisWindow(QMainWindow):
         for i in range(self.list_tasks.count()):
             self.list_tasks.item(i).setForeground(color if color and color.isValid() else Qt.GlobalColor.black)
         
-        border_style = f"2px solid {color_name}" if color_name != "transparent" else "none"
-        self.col3_widget.setStyleSheet(f"#Col3Widget {{ border: {border_style}; }}")
+        border_style = f"2px solid {color_name}" if color_name != "transparent" else "1px solid #E5E7EB"
+        base_style = "background-color: #FFFFFF; border-radius: 12px; margin: 4px;"
         
+        self.col1_widget.setStyleSheet(f"#Col1Widget {{ {base_style} border: {border_style}; }}")
+        self.col2_widget.setStyleSheet(f"#Col2Widget {{ {base_style} border: {border_style}; }}")
+        self.col3_widget.setStyleSheet(f"#Col3Widget {{ {base_style} border: {border_style}; }}")
         # Update self.lbl_selected_folder style dynamically to match the color!
         border_color = color.name() if color and color.isValid() else "#CCCCCC"
         self.lbl_selected_folder.setStyleSheet(f"""
@@ -633,9 +720,11 @@ class VibeCodeThisWindow(QMainWindow):
                 parent.removeChild(item)
                 self.mark_unsaved()
         elif action == a_color:
-            color = QColorDialog.getColor()
-            if color.isValid():
-                self.apply_color_to_folder(item, color)
+            dialog = FolderColorDialog(self)
+            if dialog.exec():
+                color = dialog.getColor()
+                if color and color.isValid():
+                    self.apply_color_to_folder(item, color)
 
     def show_task_context_menu(self, pos):
         item = self.list_tasks.itemAt(pos)

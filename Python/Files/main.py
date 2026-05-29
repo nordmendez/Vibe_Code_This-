@@ -9,7 +9,8 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QRectF, QPointF
 from PyQt6.QtGui import (QTextCharFormat, QColor, QCursor, QGuiApplication, 
                          QTextCursor, QFont, QTextListFormat, QPen, 
-                         QTextTableFormat, QBrush, QTextFrameFormat, QPainter)
+                         QTextTableFormat, QBrush, QTextFrameFormat, QPainter,
+                         QIcon, QPixmap, QPainterPath, QLinearGradient)
 
 class ToastWidget(QLabel):
     def __init__(self, parent=None):
@@ -355,6 +356,45 @@ class VibeCodeThisWindow(QMainWindow):
         
         self.main_layout.addWidget(self.splitter)
 
+    def create_folder_icon(self, color):
+        pixmap = QPixmap(20, 20)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # Draw the folder tab
+        tab_path = QPainterPath()
+        tab_path.addRoundedRect(QRectF(2, 2, 8, 5), 1.5, 1.5)
+        
+        # Main folder body
+        body_path = QPainterPath()
+        body_path.addRoundedRect(QRectF(1, 5, 18, 13), 2.0, 2.0)
+        
+        # Subtle premium gradient
+        painter.setPen(Qt.PenStyle.NoPen)
+        gradient = QLinearGradient(0, 2, 0, 18)
+        gradient.setColorAt(0, color.lighter(115))
+        gradient.setColorAt(1, color.darker(105))
+        painter.setBrush(QBrush(gradient))
+        
+        # Draw tab and body
+        painter.drawPath(tab_path)
+        painter.drawPath(body_path)
+        
+        # Draw outline
+        outline_pen = QPen(color.darker(120), 1)
+        painter.setPen(outline_pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawPath(body_path)
+        
+        # Accent line
+        painter.setPen(QPen(color.lighter(130), 1))
+        painter.drawLine(2, 6, 18, 6)
+        
+        painter.end()
+        return QIcon(pixmap)
+
     def mark_unsaved(self):
         self.unsaved_changes = True
 
@@ -427,8 +467,9 @@ class VibeCodeThisWindow(QMainWindow):
         color_hex = data.get("color")
         if color_hex:
             color = QColor(color_hex)
-            item.setData(0, Qt.ItemDataRole.UserRole, color)
-            item.setForeground(0, color)
+            self.apply_color_to_folder(item, color)
+        else:
+            self.apply_color_to_folder(item, QColor("#007AFF"))
         
         item.setData(0, Qt.ItemDataRole.UserRole + 1, data.get("tasks", []))
         
@@ -458,11 +499,14 @@ class VibeCodeThisWindow(QMainWindow):
             item.setText(0, name)
             if color.isValid():
                 self.apply_color_to_folder(item, color)
+            else:
+                self.apply_color_to_folder(item, QColor("#007AFF"))
             self.mark_unsaved()
 
     def apply_color_to_folder(self, item, color):
         item.setData(0, Qt.ItemDataRole.UserRole, color)
         item.setForeground(0, color)
+        item.setIcon(0, self.create_folder_icon(color))
         for i in range(item.childCount()):
             self.apply_color_to_folder(item.child(i), color)
         
@@ -497,6 +541,8 @@ class VibeCodeThisWindow(QMainWindow):
                 color = item.data(0, Qt.ItemDataRole.UserRole)
                 if color and color.isValid():
                     self.apply_color_to_folder(new_item, color)
+                else:
+                    self.apply_color_to_folder(new_item, QColor("#007AFF"))
                 item.setExpanded(True)
                 self.mark_unsaved()
         elif action == a_rename:

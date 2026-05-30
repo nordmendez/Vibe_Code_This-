@@ -4,10 +4,10 @@ import os
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QSplitter, QTreeWidget, QListWidget,
                              QColorDialog, QInputDialog, QMessageBox, QMenu, QPushButton,
-                             QTreeWidgetItem, QListWidgetItem, QFontComboBox, QFileDialog, QGridLayout)
+                             QTreeWidgetItem, QListWidgetItem, QFontComboBox, QFileDialog, QGridLayout, QTextBrowser)
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QRectF, QPointF, QSize
 from PyQt6.QtGui import (QTextCharFormat, QColor, QCursor, QGuiApplication, 
-                         QTextCursor, QFont, QTextListFormat, QPen, 
+                         QTextCursor, QFont, QTextListFormat, QPen, QTextBrowser, 
                          QTextTableFormat, QBrush, QTextFrameFormat, QPainter,
                          QIcon, QPixmap, QPainterPath, QLinearGradient)
 from qfluentwidgets import (MessageBoxBase, PushButton, SubtitleLabel, BodyLabel, CaptionLabel,
@@ -453,11 +453,18 @@ class VibeCodeThisWindow(FramelessWindow):
         self.btn_add_folder.clicked.connect(self.add_folder)
         
         self.search_box = SearchLineEdit()
-        self.search_box.setPlaceholderText("Search folders...")
-        self.search_box.textChanged.connect(self.filter_folders)
+        self.search_box.setPlaceholderText("Search folders, tasks, notes...")
+        self.search_box.textChanged.connect(self.perform_search)
+        
+        self.search_results = QTextBrowser()
+        self.search_results.setOpenLinks(False)
+        self.search_results.anchorClicked.connect(self.on_search_result_clicked)
+        self.search_results.setStyleSheet("QTextBrowser { border: 1px solid #e0e0e0; border-radius: 6px; background-color: #fafafa; padding: 4px; }")
+        self.search_results.hide()
         
         self.col1_layout.addLayout(self.col1_header)
         self.col1_layout.addWidget(self.tree_folders)
+        self.col1_layout.addWidget(self.search_results)
         self.col1_layout.addWidget(self.search_box)
         
         # Column 2
@@ -788,57 +795,118 @@ class VibeCodeThisWindow(FramelessWindow):
             }}
         """)
 
-    def filter_folders(self, text):
-        text = text.lower()
-        root = self.tree_folders.invisibleRootItem()
+    def perform_search(self, text):
+        if not text.strip():
+            self.search_results.hide()
+            self.tree_folders.show()
+            self.search_results.clear()
+            return
+            
+        self.tree_folders.hide()
+        self.search_results.show()
         
-        def match_item(item):
-            # Returns True if item matches or any of its descendants match
-            matches = text in item.text(0).lower()
-            
-            # Search tasks in this folder too!
-            tasks = item.data(0, Qt.ItemDataRole.UserRole + 1) or []
-            if any(text in str(t.get("name", "")).lower() for t in tasks):
-                matches = True
-                
-            child_matches = False
-            for i in range(item.childCount()):
-                if match_item(item.child(i)):
-                    child_matches = True
-                    
-            should_show = matches or child_matches
-            item.setHidden(not should_show)
-            
-            # If a child matches, expand the parent so the matched child is visible
-            if child_matches and text:
-                item.setExpanded(True)
-                
-            return should_show
-            
-        for i in range(root.childCount()):
-            match_item(root.child(i))
-            
-        # UX Fix: If the currently selected folder is hidden (doesn't match), select the first visible one!
-        current = self.tree_folders.currentItem()
-        if text and current and current.isHidden():
-            def find_first_visible(parent):
-                for j in range(parent.childCount()):
-                    child = parent.child(j)
-                    if not child.isHidden():
-                        return child
-                    res = find_first_visible(child)
-                    if res: return res
-                return None
-            first = find_first_visible(root)
-            if first:
-                self.tree_folders.setCurrentItem(first)
-            else:
-                self.tree_folders.clearSelection()
+        text = text.lower()
+        html = ["<div style='font-family: sans-serif; font-size: 13px;'>"]
+        
+        def get_item_path(item):
+            path = []
+            curr = item
+            while curr:
+                parent = curr.parent()
+                if parent:
+                    path.insert(0, str(parent.indexOfChild(curr)))
+                    curr = parent
+                else:
+                    path.insert(0, str(self.tree_folders.invisibleRootItem().indexOfChild(curr)))
+                    break
+            return "-".join(path)
 
-        # Also perfectly filter the currently visible task list!
-        for i in range(self.list_tasks.count()):
-            task_item = self.list_tasks.item(i)
-            task_item.setHidden(text not in task_item.text().lower())
+        def get_item_name_path(item):
+            path = []
+            curr = item
+            while curr:
+                path.insert(0, curr.text(0))
+                curr = curr.parent()
+            return " / ".join(path)
+
+        def highlight(content, keyword):
+            import re
+            pattern = re.compile(re.escape(keyword), re.IGNORECASE)
+            return pattern.sub(lambda m: f"<span style='background-color: #00E5FF; color: black; border-radius: 3px; font-weight: bold;'>{m.group(0)}</span>", content)
+
+        def search_item(item):
+            item_path = get_item_path(item)
+            item_name_path = get_item_name_path(item)
+            
+            # Check folder name
+            if text in item.text(0).lower():
+                html.append(f"<p><a href='folder:{item_path}' style='color: #333; text-decoration: none;'>📁 {highlight(item_name_path, text)}</a></p>")
+                
+            # Check tasks
+            tasks = item.data(0, Qt.ItemDataRole.UserRole + 1) or []
+            for task_idx, t in enumerate(tasks):
+                task_name = t.get("name", "")
+                task_note = t.get("note", "")
+                
+                # Strip HTML from note
+                import re
+                plain_note = re.sub(r'<[^>]+>', '', task_note)
+                plain_note = plain_note.replace('&nbsp;', ' ').strip()
+                
+                if text in task_name.lower():
+                    html.append(f"<p style='margin-left: 15px;'><a href='task:{item_path}:{task_idx}' style='color: #333; text-decoration: none;'>✅ {item_name_path} / <b>{highlight(task_name, text)}</b></a></p>")
+                elif text in plain_note.lower():
+                    # Generate a snippet
+                    idx = plain_note.lower().find(text)
+                    start = max(0, idx - 30)
+                    end = min(len(plain_note), idx + len(text) + 30)
+                    snippet = plain_note[start:end]
+                    if start > 0: snippet = "..." + snippet
+                    if end < len(plain_note): snippet = snippet + "..."
+                    
+                    html.append(f"<p style='margin-left: 15px;'><a href='task:{item_path}:{task_idx}' style='color: #333; text-decoration: none;'>📄 {item_name_path} / {task_name}<br><i style='color: #666;'>{highlight(snippet, text)}</i></a></p>")
+            
+            for i in range(item.childCount()):
+                search_item(item.child(i))
+
+        root = self.tree_folders.invisibleRootItem()
+        for i in range(root.childCount()):
+            search_item(root.child(i))
+            
+        html.append("</div>")
+        if len(html) == 2: # only div tags
+            html.insert(1, "<p style='color: #999; font-style: italic;'>No results found.</p>")
+            
+        self.search_results.setHtml("".join(html))
+
+    def on_search_result_clicked(self, url):
+        href = url.toString()
+        parts = href.split(":")
+        action = parts[0]
+        item_path = parts[1]
+        
+        indices = [int(x) for x in item_path.split("-")]
+        curr = self.tree_folders.invisibleRootItem()
+        for idx in indices:
+            curr = curr.child(idx)
+            
+        if not curr: return
+        
+        # Clear search which resets views
+        self.search_box.clear()
+        
+        # Make sure parents are expanded
+        parent = curr.parent()
+        while parent:
+            parent.setExpanded(True)
+            parent = parent.parent()
+            
+        self.tree_folders.setCurrentItem(curr)
+        
+        if action == "task" and len(parts) > 2:
+            task_idx = int(parts[2])
+            if task_idx < self.list_tasks.count():
+                self.list_tasks.setCurrentRow(task_idx)
 
     def show_folder_context_menu(self, pos):
         item = self.tree_folders.itemAt(pos)

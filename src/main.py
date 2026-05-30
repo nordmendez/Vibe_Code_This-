@@ -150,6 +150,11 @@ class CustomTextEditor(TextEdit):
 
     def mousePressEvent(self, event):
         super().mousePressEvent(event)
+        
+        # Disable copy functionality in edit mode
+        if not self.isReadOnly():
+            return
+            
         if event.button() == Qt.MouseButton.LeftButton:
             cursor = self.cursorForPosition(event.pos())
             block = cursor.block()

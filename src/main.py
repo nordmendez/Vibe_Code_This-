@@ -1,4 +1,5 @@
 import sys
+import shutil
 import json
 import os
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
@@ -15,15 +16,27 @@ from qfluentwidgets import (MessageBoxBase, PushButton, SubtitleLabel, BodyLabel
 from qframelesswindow import FramelessWindow
 
 def get_workspace_path(filename="workspace.json"):
+    # Determine the bundled template path
     if getattr(sys, 'frozen', False):
-        exe_dir = os.path.dirname(sys.executable)
-        if ".app/Contents/MacOS" in exe_dir:
-            base_dir = os.path.abspath(os.path.join(exe_dir, "../../../.."))
-        else:
-            base_dir = exe_dir
+        bundled_path = os.path.join(sys._MEIPASS, filename)
     else:
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base_dir, filename)
+        bundled_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), filename)
+
+    # For production macOS, use ~/Library/Application Support/VibeCodeThis
+    if sys.platform == 'darwin':
+        user_data_dir = os.path.expanduser("~/Library/Application Support/VibeCodeThis")
+    else:
+        # Fallback to local dir for other OS or dev
+        user_data_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        
+    os.makedirs(user_data_dir, exist_ok=True)
+    user_file_path = os.path.join(user_data_dir, filename)
+    
+    # If the user doesn't have a workspace yet, copy the introductory template!
+    if not os.path.exists(user_file_path) and os.path.exists(bundled_path) and user_file_path != bundled_path:
+        shutil.copy2(bundled_path, user_file_path)
+        
+    return user_file_path
 
 
 class FolderColorDialog(MessageBoxBase):

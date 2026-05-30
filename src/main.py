@@ -818,6 +818,23 @@ class VibeCodeThisWindow(FramelessWindow):
         for i in range(root.childCount()):
             match_item(root.child(i))
             
+        # UX Fix: If the currently selected folder is hidden (doesn't match), select the first visible one!
+        current = self.tree_folders.currentItem()
+        if text and current and current.isHidden():
+            def find_first_visible(parent):
+                for j in range(parent.childCount()):
+                    child = parent.child(j)
+                    if not child.isHidden():
+                        return child
+                    res = find_first_visible(child)
+                    if res: return res
+                return None
+            first = find_first_visible(root)
+            if first:
+                self.tree_folders.setCurrentItem(first)
+            else:
+                self.tree_folders.clearSelection()
+
         # Also perfectly filter the currently visible task list!
         for i in range(self.list_tasks.count()):
             task_item = self.list_tasks.item(i)

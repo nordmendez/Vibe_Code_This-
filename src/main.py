@@ -454,6 +454,7 @@ class VibeCodeThisWindow(FramelessWindow):
         
         self.search_box = SearchLineEdit()
         self.search_box.setPlaceholderText("Search folders...")
+        self.search_box.textChanged.connect(self.filter_folders)
         
         self.col1_layout.addLayout(self.col1_header)
         self.col1_layout.addWidget(self.tree_folders)
@@ -540,6 +541,8 @@ class VibeCodeThisWindow(FramelessWindow):
         self.format_layout.addWidget(self.btn_copy_block)
         
         self.text_editor = CustomTextEditor()
+        self.text_editor.setReadOnly(True)
+        self.text_editor.setPlaceholderText("Select a task to view or edit notes...")
         self.text_editor.textChanged.connect(self.save_task_note)
         self.btn_toggle_edit.clicked.connect(self.toggle_edit_mode)
         self.btn_trans.clicked.connect(self.spawn_translucent_window)
@@ -785,6 +788,41 @@ class VibeCodeThisWindow(FramelessWindow):
             }}
         """)
 
+    def filter_folders(self, text):
+        text = text.lower()
+        root = self.tree_folders.invisibleRootItem()
+        
+        def match_item(item):
+            # Returns True if item matches or any of its descendants match
+            matches = text in item.text(0).lower()
+            
+            # Search tasks in this folder too!
+            tasks = item.data(0, Qt.ItemDataRole.UserRole + 1) or []
+            if any(text in str(t.get("name", "")).lower() for t in tasks):
+                matches = True
+                
+            child_matches = False
+            for i in range(item.childCount()):
+                if match_item(item.child(i)):
+                    child_matches = True
+                    
+            should_show = matches or child_matches
+            item.setHidden(not should_show)
+            
+            # If a child matches, expand the parent so the matched child is visible
+            if child_matches and text:
+                item.setExpanded(True)
+                
+            return should_show
+            
+        for i in range(root.childCount()):
+            match_item(root.child(i))
+            
+        # Also perfectly filter the currently visible task list!
+        for i in range(self.list_tasks.count()):
+            task_item = self.list_tasks.item(i)
+            task_item.setHidden(text not in task_item.text().lower())
+
     def show_folder_context_menu(self, pos):
         item = self.tree_folders.itemAt(pos)
         if not item: return
@@ -973,6 +1011,8 @@ class VibeCodeThisWindow(FramelessWindow):
         self.mark_unsaved()
 
     def toggle_edit_mode(self):
+        if not self.list_tasks.currentItem():
+            return
         new_state = not self.text_editor.isReadOnly()
         self.text_editor.setReadOnly(new_state)
         self.formatting_widget.setVisible(not new_state)

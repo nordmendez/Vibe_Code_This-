@@ -794,6 +794,29 @@ class VibeCodeThisWindow(FramelessWindow):
                 color: #333333;
             }}
         """)
+        
+        sel_border = f"1px solid {color_name}" if color_name != "transparent" else "1px solid transparent"
+        self.list_tasks.setStyleSheet(f"""
+            QListWidget::item {{
+                border-bottom: 1px solid #E5E5E5;
+                padding: 8px 6px;
+            }}
+            QListWidget::item:selected {{
+                background-color: #F0F0F0;
+                border: {sel_border};
+                border-radius: 4px;
+                color: black;
+            }}
+        """)
+        
+        self.tree_folders.setStyleSheet(f"""
+            QTreeWidget::item:selected {{
+                background-color: #F0F0F0;
+                border: {sel_border};
+                border-radius: 4px;
+                color: black;
+            }}
+        """)
 
     def perform_search(self, text):
         if not text.strip():

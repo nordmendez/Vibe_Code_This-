@@ -3,7 +3,7 @@ import json
 import os
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QSplitter, QTreeWidget, QListWidget,
-                             QColorDialog, QInputDialog, QMessageBox, QMenu,
+                             QColorDialog, QInputDialog, QMessageBox, QMenu, QPushButton,
                              QTreeWidgetItem, QListWidgetItem, QFontComboBox, QFileDialog, QGridLayout)
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QRectF, QPointF, QSize
 from PyQt6.QtGui import (QTextCharFormat, QColor, QCursor, QGuiApplication, 
@@ -286,28 +286,75 @@ class CustomTextEditor(TextEdit):
             block = block.next()
 
 class TranslucentWindow(QWidget):
-    def __init__(self, text_content):
+    def __init__(self, text_content, title, color):
         super().__init__()
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
-        self.setWindowOpacity(0.8)
-        self.resize(300, 200)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground) # Fix window transparency
+        self.resize(350, 250)
         
-        # Header with close button
+        # Main layout
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(10, 10, 10, 10) # Prevent edge resize cursor from overlapping buttons
+        
+        # Wrapping widget to hold border and background
+        self.bg_widget = QWidget(self)
+        color_name = color.name() if color and color.isValid() else "#E5E7EB"
+        self.bg_widget.setStyleSheet(f"""
+            QWidget {{
+                background-color: rgba(255, 255, 255, 240);
+                border: 2px solid {color_name};
+                border-radius: 12px;
+            }}
+        """)
+        bg_layout = QVBoxLayout(self.bg_widget)
+        bg_layout.setContentsMargins(10, 10, 10, 10)
+        layout.addWidget(self.bg_widget)
+        
+        # Header with title and close button
         header = QHBoxLayout()
+        
+        # Folder Title
+        lbl_title = BodyLabel(title)
+        lbl_title.setStyleSheet(f"""
+            QLabel {{
+                color: black;
+                font-size: 12pt;
+                border: 1px solid {color_name};
+                border-radius: 4px;
+                padding: 2px 6px;
+                background-color: transparent;
+            }}
+        """)
+        header.addWidget(lbl_title)
         header.addStretch()
-        btn_close = PushButton("×")
-        btn_close.setFixedSize(20, 20)
+        
+        # Close Button
+        btn_close = QPushButton("×") # Standard QPushButton for simpler styling
+        btn_close.setFixedSize(24, 24)
+        btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_close.setStyleSheet("""
+            QPushButton {
+                color: #555555;
+                font-weight: bold;
+                font-size: 16px;
+                background: transparent;
+                border: none;
+            }
+            QPushButton:hover {
+                color: black;
+            }
+        """)
         btn_close.clicked.connect(self.close)
         header.addWidget(btn_close)
-        layout.addLayout(header)
+        bg_layout.addLayout(header)
         
-        # Re-use CustomTextEditor so copy block works here too
+        # Re-use CustomTextEditor
         self.text_display = CustomTextEditor()
         self.text_display.setReadOnly(True)
+        # Remove borders and focus lines
+        self.text_display.setStyleSheet("TextEdit { border: none; background-color: transparent; } TextEdit:focus { border: none; }")
         self.text_display.setHtml(text_content)
-        layout.addWidget(self.text_display)
+        bg_layout.addWidget(self.text_display)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -563,7 +610,10 @@ class VibeCodeThisWindow(FramelessWindow):
             self.save_workspace(path)
 
     def spawn_translucent_window(self):
-        self.trans_win = TranslucentWindow(self.text_editor.toHtml())
+        folder = self.tree_folders.currentItem()
+        title = folder.text(0) if folder else "No Folder"
+        color = folder.data(0, Qt.ItemDataRole.UserRole) if folder else None
+        self.trans_win = TranslucentWindow(self.text_editor.toHtml(), title, color)
         self.trans_win.show()
 
     def serialize_folder(self, item):

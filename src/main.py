@@ -166,7 +166,43 @@ class CustomTextEditor(TextEdit):
                 if brush.style() != Qt.BrushStyle.NoBrush:
                     bg_color = brush.color()
                     if bg_color.isValid() and bg_color.name().upper() == self.COPY_BG:
-                        if start <= click_rel_pos <= start + length:
+                        # Only copy if the exact click position is visually inside the drawn bounding box
+                        clicked_on_box = False
+                        block_layout = block.layout()
+                        for line_idx in range(block_layout.lineCount()):
+                            line = block_layout.lineAt(line_idx)
+                            line_start = line.textStart()
+                            line_end = line_start + line.textLength()
+                            
+                            intersect_start = max(start, line_start)
+                            intersect_end = min(start + length, line_end)
+                            
+                            if intersect_start < intersect_end:
+                                x1 = line.cursorToX(intersect_start)[0]
+                                x2 = line.cursorToX(intersect_end)[0]
+                                
+                                doc_layout = self.document().documentLayout()
+                                block_rect = doc_layout.blockBoundingRect(block)
+                                b_pos = block_rect.topLeft()
+                                
+                                x_offset = self.horizontalScrollBar().value()
+                                y_offset = self.verticalScrollBar().value()
+                                
+                                vx1 = b_pos.x() + x1 - x_offset
+                                vx2 = b_pos.x() + x2 - x_offset
+                                vy = b_pos.y() + line.y() - y_offset
+                                vh = line.height()
+                                
+                                pad_x = 2
+                                pad_y = 1
+                                rect = QRectF(vx1 - pad_x, vy - pad_y, (vx2 - vx1) + (pad_x * 2), vh + (pad_y * 2))
+                                
+                                event_pos = event.position() if hasattr(event, 'position') else QPointF(event.pos())
+                                if rect.contains(event_pos):
+                                    clicked_on_box = True
+                                    break
+                                    
+                        if clicked_on_box:
                             selection_cursor = QTextCursor(self.document())
                             selection_cursor.setPosition(block_pos + start)
                             selection_cursor.setPosition(block_pos + start + length, QTextCursor.MoveMode.KeepAnchor)

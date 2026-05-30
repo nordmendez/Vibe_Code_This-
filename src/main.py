@@ -11,7 +11,7 @@ from PyQt6.QtGui import (QTextCharFormat, QColor, QCursor, QGuiApplication,
                          QTextTableFormat, QBrush, QTextFrameFormat, QPainter,
                          QIcon, QPixmap, QPainterPath, QLinearGradient)
 from qfluentwidgets import (MessageBoxBase, PushButton, SubtitleLabel, BodyLabel, CaptionLabel,
-                            TreeWidget, ListWidget, TextEdit, LineEdit, setTheme, Theme, setThemeColor, SearchLineEdit, TransparentPushButton)
+                            TreeWidget, ListWidget, TextEdit, LineEdit, setTheme, Theme, setThemeColor, SearchLineEdit, TransparentPushButton, InfoBar, InfoBarPosition)
 from qframelesswindow import FramelessWindow
 
 def get_workspace_path(filename="workspace.json"):
@@ -402,8 +402,8 @@ class VibeCodeThisWindow(FramelessWindow):
         self.main_layout.setContentsMargins(10, 40, 10, 10)
         
         self.top_row_layout = QHBoxLayout()
-        self.btn_import = PushButton("Import")
-        self.btn_save_as = PushButton("Save As")
+        self.btn_import = PushButton("Restore Backup")
+        self.btn_save_as = PushButton("Backup Workspace")
         self.lbl_selected_folder = SubtitleLabel("Select a folder")
         self.lbl_selected_folder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_selected_folder.setStyleSheet("""
@@ -628,6 +628,21 @@ class VibeCodeThisWindow(FramelessWindow):
         for i in range(item.childCount()):
             folder_data["subfolders"].append(self.serialize_folder(item.child(i)))
         return folder_data
+
+
+    def check_autosave(self):
+        if self.unsaved_changes:
+            self.save_workspace() # Saves to default workspace_path
+            # Show a brief non-intrusive toast notification at the bottom
+            InfoBar.success(
+                title='Saved',
+                content='Auto-saved to workspace',
+                orient=Qt.Orientation.Horizontal,
+                isClosable=False,
+                position=InfoBarPosition.BOTTOM_RIGHT,
+                duration=1500,
+                parent=self
+            )
 
     def save_workspace(self, filepath=None):
         if filepath is None:

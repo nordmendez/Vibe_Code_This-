@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QTreeWidgetItem, QListWidgetItem, QFontComboBox, QFileDialog, QGridLayout, QTextBrowser)
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QRectF, QPointF, QSize
 from PyQt6.QtGui import (QTextCharFormat, QColor, QCursor, QGuiApplication, 
-                         QTextCursor, QFont, QTextListFormat, QPen, QTextBrowser, 
+                         QTextCursor, QFont, QTextListFormat, QPen, 
                          QTextTableFormat, QBrush, QTextFrameFormat, QPainter,
                          QIcon, QPixmap, QPainterPath, QLinearGradient)
 from qfluentwidgets import (MessageBoxBase, PushButton, SubtitleLabel, BodyLabel, CaptionLabel,

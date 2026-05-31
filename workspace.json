@@ -1,0 +1,53 @@
+{
+    "folders": [
+        {
+            "name": "Your First Folder",
+            "color": "#0086c0",
+            "tasks": [
+                {
+                    "color": "#0086c0",
+                    "name": "Introduction Task",
+                    "note": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI','Microsoft YaHei','PingFang SC'; font-size:14px; font-weight:400; font-style:normal;\">\n<p align=\"center\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-weight:700; text-decoration: underline;\">Introduction to Vibe Code This!</span></p>\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p>\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Step 1. Left click these copy blocks and paste somewhere to get a feel for it. Click the pencil to go into edit mode, click it again to exit. Type some code here like <span style=\" font-family:'Courier'; background-color:#fafafa;\">sudo apt get update</span> . or <span style=\" font-family:'Courier'; background-color:#fafafa;\">cd/myfolder_directory</span>, a login name and password, a pasted URL or whatever. (its saved on your local hard drive).  Then select the text and click on the copy box. Now your box can be left clicked and it copies automatically. When your done click the pencil to stop editing or just go to a different folder or task, it will save automatically.</p>\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p>\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Step 2. <span style=\" text-decoration: underline;\">Try the Trans button</span>. it opens a transparent always on top window you can drag over top of whatever your working on.</p>\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p>\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Step 3. When your ready to start some new projects click the plus button in the folders and tasks section to create new folders and tasks. You can right click folders and tasks to change colour, duplicate, rename etc. Ohhhh, and your mom says hi dude.</p></body></html>"
+                },
+                {
+                    "color": "#0086c0",
+                    "name": "Task this dude!! \"I mean really",
+                    "note": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI','Microsoft YaHei','PingFang SC'; font-size:14px; font-weight:400; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Steve:   bro! i mean like what is this man. I'm tottally <span style=\" font-family:'Courier'; background-color:#fafafa;\">broing out over here</span>. </p>\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Chad: Broing isn't a <span style=\" font-family:'Courier'; background-color:#fafafa;\">word bro</span>.... Like dude!... you know!</p></body></html>"
+                }
+            ],
+            "subfolders": [
+                {
+                    "name": "Right Click root folder to make sub folder",
+                    "color": "#0086c0",
+                    "tasks": [
+                        {
+                            "color": "#0086c0",
+                            "name": "Sub Folders have their own tasks",
+                            "note": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI','Microsoft YaHei','PingFang SC'; font-size:14px; font-weight:400; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">go it? I know you do. </p></body></html>"
+                        }
+                    ],
+                    "subfolders": []
+                }
+            ]
+        },
+        {
+            "name": "EachRootfolder-CanBe-dif colour",
+            "color": "#ff158a",
+            "tasks": [
+                {
+                    "color": "#ff158a",
+                    "name": "Tasks have the same colour",
+                    "note": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI','Microsoft YaHei','PingFang SC'; font-size:14px; font-weight:400; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">the past will cure you</p></body></html>"
+                }
+            ],
+            "subfolders": [
+                {
+                    "name": "SubFolder=SameColour",
+                    "color": "#ff158a",
+                    "tasks": [],
+                    "subfolders": []
+                }
+            ]
+        }
+    ]
+}

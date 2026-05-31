@@ -1,6 +1,11 @@
 #!/bin/bash
+echo "Setting up a clean build environment..."
+python3 -m venv venv_build
+source venv_build/bin/activate
+pip install pyinstaller pyqt6 PyQt6-Fluent-Widgets PyQt6-Frameless-Window dmgbuild
+
 echo "Compiling Mac Application..."
-pyinstaller --noconfirm --onedir --windowed --name "Vibe-Code-This" --icon "images/AppIcon.icns" --add-data "workspace.json:." src/main.py
+pyinstaller --clean --noconfirm --onedir --windowed --name "Vibe-Code-This" --icon "images/AppIcon.icns" --add-data "workspace.json:." src/main.py
 
 echo "Building DMG..."
 dmgbuild -s dmg_settings.py -D app=dist/Vibe-Code-This.app "Vibe-Code-This" "dist/Vibe-Code-This.dmg"

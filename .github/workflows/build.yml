@@ -27,7 +27,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pyinstaller pyqt6 PyQt6-Fluent-Widgets dmgbuild
+        pip install pyinstaller pyqt6 PyQt6-Fluent-Widgets
         
     - name: Build with PyInstaller (Mac/Linux)
       if: matrix.os != 'windows-latest'
@@ -40,8 +40,9 @@ jobs:
         pyinstaller --noconfirm --onedir --windowed --name "Vibe-Code-This" --icon "images/AppIcon.ico" --add-data "workspace.json;." src/main.py
 
     - name: Build DMG (macOS)
-      if: matrix.os == 'macos-13' || matrix.os == 'macos-14'
+      if: matrix.os == 'macos-13'
       run: |
+        pip install dmgbuild
         dmgbuild -s dmg_settings.py -D app=dist/Vibe-Code-This.app "Vibe-Code-This" "dist/Vibe-Code-This.dmg"
         python -c 'import Cocoa; Cocoa.NSWorkspace.sharedWorkspace().setIcon_forFile_options_(Cocoa.NSImage.alloc().initWithContentsOfFile_("images/AppIcon.icns"), "dist/Vibe-Code-This.dmg", 0)'
 

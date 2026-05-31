@@ -1,0 +1,53 @@
+name: Build Binaries
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        # macos-14 runs on Apple Silicon (M1/M2)
+        # macos-13 runs on Intel
+        # ubuntu-latest runs on Linux
+        # windows-latest runs on Windows
+        os: [macos-14, macos-13, ubuntu-latest, windows-latest]
+    
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller pyqt6
+        # Install any other requirements if you add a requirements.txt later
+        # pip install -r requirements.txt
+        
+    - name: Build with PyInstaller (Mac/Linux)
+      if: matrix.os != 'windows-latest'
+      run: |
+        pyinstaller --noconfirm --onedir --windowed --name "Vibe-Code-This" --add-data "workspace.json:." src/main.py
+
+    - name: Build with PyInstaller (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        pyinstaller --noconfirm --onedir --windowed --name "Vibe-Code-This" --add-data "workspace.json;." src/main.py
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Vibe-Code-This-${{ matrix.os }}
+        path: dist/Vibe-Code-This/

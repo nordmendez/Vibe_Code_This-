@@ -1,7 +1,6 @@
 # Vibe-Code-This: The Anti-Bloat Snippet Manager ⚡️
 
-![Vibe Code This Demo](images/demo.gif)
-*(Note: Replace this placeholder with an actual GIF showing the 1-click copy and translucent window!)*
+<video src="images/demo.mp4" autoplay loop muted playsinline width="100%"></video>
 
 **Vibe-Code-This** is a blazing-fast, local-first note-taking and snippet manager. 
 

@@ -395,7 +395,7 @@ class VibeCodeThisWindow(FramelessWindow):
 
         # Set macOS style fluent theme
         setTheme(Theme.LIGHT)
-        setThemeColor('#00E5FF') # Neon cyan from icon
+        setThemeColor('#004B87') # Dark blue from logo
         self.setStyleSheet("""
             VibeCodeThisWindow {
                 background-color: #F3F4F6; /* Slightly darker light mode bg to make cards pop */
@@ -735,7 +735,7 @@ class VibeCodeThisWindow(FramelessWindow):
             color = QColor(color_hex)
             self.apply_color_to_folder(item, color)
         else:
-            self.apply_color_to_folder(item, QColor("#007AFF"))
+            self.apply_color_to_folder(item, QColor("#004B87"))
         
         item.setData(0, Qt.ItemDataRole.UserRole + 1, data.get("tasks", []))
         
@@ -769,7 +769,7 @@ class VibeCodeThisWindow(FramelessWindow):
             if color and color.isValid():
                 self.apply_color_to_folder(item, color)
             else:
-                self.apply_color_to_folder(item, QColor("#007AFF"))
+                self.apply_color_to_folder(item, QColor("#004B87"))
             self.mark_unsaved()
 
     def apply_color_to_folder(self, item, color):
@@ -961,10 +961,10 @@ class VibeCodeThisWindow(FramelessWindow):
                 new_item = QTreeWidgetItem(item)
                 new_item.setText(0, name)
                 color = item.data(0, Qt.ItemDataRole.UserRole)
-                if color and color.isValid():
+                if color:
                     self.apply_color_to_folder(new_item, color)
                 else:
-                    self.apply_color_to_folder(new_item, QColor("#007AFF"))
+                    self.apply_color_to_folder(new_item, QColor("#004B87"))
                 item.setExpanded(True)
                 self.mark_unsaved()
         elif action == a_rename:

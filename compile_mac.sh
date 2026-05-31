@@ -9,4 +9,7 @@ echo "Organizing output into compiles_github/mac..."
 mkdir -p compiles_github/mac
 cp dist/Vibe-Code-This.dmg compiles_github/mac/
 
+echo "Forcing DMG Icon metadata..."
+python3 -c 'import Cocoa; Cocoa.NSWorkspace.sharedWorkspace().setIcon_forFile_options_(Cocoa.NSImage.alloc().initWithContentsOfFile_("images/AppIcon.icns"), "compiles_github/mac/Vibe-Code-This.dmg", 0)'
+
 echo "Done! Your DMG is inside compiles_github/mac/"

@@ -49,4 +49,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: Vibe-Code-This-${{ matrix.os }}
-        path: dist/Vibe-Code-This/
+        path: dist/
